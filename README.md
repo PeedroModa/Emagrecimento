@@ -5,7 +5,7 @@ Painel pessoal de acompanhamento de peso e composição corporal. Vite + React (
 - **Hoje** — registrar pesagem, "É real ou ruído?", variação vs. anterior, progresso até a meta
 - **Evolução** — gráfico de linha (peso + média móvel 27d + meta), tendência com projeção de composição, recordes, histórico com edição/exclusão
 - **Nutrição** — Mifflin-St Jeor (BMR/TDEE/alvo), macros em dois modos (% e g/kg), simulador de ritmo
-- **Ajustes** — metas, perfil físico (data de nascimento → idade automática), treinos/déficit, backup export/import JSON, troca de senha, logout
+- **Ajustes** — metas, perfil físico (data de nascimento → idade automática), treinos/déficit, backup export/import JSON, troca de senha, logout.
 
 ---
 
