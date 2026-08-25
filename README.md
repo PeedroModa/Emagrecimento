@@ -3,7 +3,7 @@
 Painel pessoal de acompanhamento de peso e composição corporal. Vite + React (JavaScript), dados no Supabase (com Row Level Security), login por e-mail e senha (link mágico como alternativa), deploy na Vercel.
 
 - **Hoje** — registrar pesagem, "É real ou ruído?", variação vs. anterior, progresso até a meta
-- **Evolução** — gráfico de linha (peso + média móvel 27d + meta), tendência com projeção de composição, recordes, histórico com edição/exclusão
+- **Evolução** — gráfico de linha (peso + tendência + meta) com janela de análise selecionável (27 dias padrão, 60, 90, 180, 365), tendência com projeção de composição, recordes, histórico com edição/exclusão
 - **Nutrição** — Mifflin-St Jeor (BMR/TDEE/alvo), macros em dois modos (% e g/kg), simulador de ritmo
 - **Ajustes** — metas, perfil físico (data de nascimento → idade automática), treinos/déficit, backup export/import JSON, troca de senha, logout.
 
