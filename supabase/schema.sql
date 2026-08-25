@@ -25,7 +25,8 @@ create table if not exists user_settings (
   goal_kg numeric(5,2) default 90,
   bf_target numeric(4,1) default 15,
   height_cm int default 175,
-  age int default 28,
+  birth_date date,                 -- fonte da verdade da idade (perguntada no 1o acesso)
+  age int default 28,              -- espelho calculado de birth_date; usado como fallback
   sex text default 'M' check (sex in ('M','F')),
   train_days int default 3,
   deficit_pct int default 15 check (deficit_pct in (10,15,20)),

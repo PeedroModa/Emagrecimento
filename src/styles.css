@@ -183,7 +183,7 @@ body {
 .big-num { font-family: var(--font-mono); font-size: 1.35rem; font-weight: 700; }
 
 /* ── Forms ── */
-input[type="number"], input[type="date"], input[type="text"], input[type="email"], select {
+input[type="number"], input[type="date"], input[type="text"], input[type="email"], input[type="password"], select {
   background: var(--bg);
   border: 1px solid var(--bdr);
   color: var(--t1);
@@ -195,6 +195,7 @@ input[type="number"], input[type="date"], input[type="text"], input[type="email"
   transition: border-color .15s;
 }
 input[type="text"], input[type="email"] { font-family: var(--font-body); }
+input[type="password"] { letter-spacing: .12em; }
 input:focus, select:focus {
   outline: 2px solid var(--good); outline-offset: 1px;
   border-color: var(--good);

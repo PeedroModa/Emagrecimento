@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
+import { ageFromBirthDate } from "../lib/calculations.js";
 
 export const DEFAULT_SETTINGS = {
   goal_kg: 90,
   bf_target: 15,
   height_cm: 175,
+  birth_date: null,
   age: 28,
   sex: "M",
   train_days: 3,
@@ -41,6 +43,14 @@ export function clearSettingsCache() {
   notify();
 }
 
+// `birth_date` é a fonte da verdade da idade; `age` vira um espelho recalculado
+// (e persistido) a cada carga/edição, servindo de fallback quando não há data.
+function syncAge(obj) {
+  const derived = ageFromBirthDate(obj?.birth_date);
+  if (derived != null) obj.age = derived;
+  return obj;
+}
+
 function pickSettings(row) {
   const out = {};
   for (const k of SETTING_KEYS) {
@@ -58,7 +68,7 @@ async function fetchSettings() {
     status = "error";
     errorMsg = "Não consegui carregar as configurações. Verifique a conexão e tente de novo.";
   } else {
-    cache = data ? { ...DEFAULT_SETTINGS, ...pickSettings(data) } : { ...DEFAULT_SETTINGS };
+    cache = syncAge(data ? { ...DEFAULT_SETTINGS, ...pickSettings(data) } : { ...DEFAULT_SETTINGS });
     status = "ready";
   }
   notify();
@@ -99,7 +109,7 @@ export function useSettings() {
 
   const save = useCallback((patch, userId) => {
     if (!snapshotBeforePending) snapshotBeforePending = { ...(cache || DEFAULT_SETTINGS) };
-    cache = { ...(cache || DEFAULT_SETTINGS), ...patch };
+    cache = syncAge({ ...(cache || DEFAULT_SETTINGS), ...patch });
     notify();
     scheduleSave(userId);
   }, []);

@@ -280,3 +280,32 @@ export function computeSimulator(remainingToGoal, simRate) {
   const dateLabel = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
   return { weeks, dateLabel, months: Math.round(weeks / 4.345) };
 }
+
+// ── Idade a partir da data de nascimento ────────────────────────────────────
+// A idade deixa de ser um número digitado e passa a ser derivada: o usuário
+// informa a data de nascimento uma vez e o Mifflin-St Jeor acompanha sozinho.
+
+export function isValidBirthDate(iso, refISO) {
+  if (!iso) return false;
+  const s = String(iso).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  // rejeita data inexistente (ex: 31/02) — o Date normaliza, então comparamos de volta
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return false;
+  const age = ageFromBirthDate(s, refISO);
+  return age != null;
+}
+
+export function ageFromBirthDate(iso, refISO) {
+  if (!iso) return null;
+  const s = String(iso).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [by, bm, bd] = s.split("-").map(Number);
+  const [ry, rm, rd] = String(refISO || todayISO()).slice(0, 10).split("-").map(Number);
+  if ([by, bm, bd, ry, rm, rd].some((n) => !Number.isFinite(n))) return null;
+  let age = ry - by;
+  if (rm < bm || (rm === bm && rd < bd)) age--;
+  if (age < 0 || age > 120) return null;
+  return age;
+}

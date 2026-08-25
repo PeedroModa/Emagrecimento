@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   navyBodyFat, linearSlope, bmi, bmiCategory, computeRecords, computeSeries,
   computeTrend, computeSignalRead, computeLastChange, computeCalories, computeMacros,
-  computeSimulator, rateStatus, activityFactor,
+  computeSimulator, rateStatus, activityFactor, ageFromBirthDate, isValidBirthDate,
 } from "./calculations.js";
 
 function w(date, weight, extra = {}) {
@@ -250,5 +250,58 @@ describe("rateStatus", () => {
     expect(rateStatus({ lossPerWeek: 1.5 }).key).toBe("fast");
     expect(rateStatus({ lossPerWeek: -0.2 }).key).toBe("rising");
     expect(rateStatus(null)).toBeNull();
+  });
+});
+
+describe("ageFromBirthDate", () => {
+  it("calcula a idade na data de referência", () => {
+    expect(ageFromBirthDate("1990-05-10", "2026-08-25")).toBe(36);
+  });
+  it("ainda não fez aniversário no ano => um a menos", () => {
+    expect(ageFromBirthDate("1990-12-01", "2026-08-25")).toBe(35);
+  });
+  it("no próprio dia do aniversário já conta o ano", () => {
+    expect(ageFromBirthDate("1990-08-25", "2026-08-25")).toBe(36);
+  });
+  it("um dia antes do aniversário ainda não conta", () => {
+    expect(ageFromBirthDate("1990-08-26", "2026-08-25")).toBe(35);
+  });
+  it("aceita timestamp do Postgres (corta em 10 chars)", () => {
+    expect(ageFromBirthDate("1990-05-10T00:00:00Z", "2026-08-25")).toBe(36);
+  });
+  it("retorna null para vazio, formato inválido, futuro e idade absurda", () => {
+    expect(ageFromBirthDate(null)).toBeNull();
+    expect(ageFromBirthDate("")).toBeNull();
+    expect(ageFromBirthDate("10/05/1990")).toBeNull();
+    expect(ageFromBirthDate("2030-01-01", "2026-08-25")).toBeNull();
+    expect(ageFromBirthDate("1800-01-01", "2026-08-25")).toBeNull();
+  });
+});
+
+describe("isValidBirthDate", () => {
+  it("aceita data real", () => {
+    expect(isValidBirthDate("1990-02-28", "2026-08-25")).toBe(true);
+    expect(isValidBirthDate("1992-02-29", "2026-08-25")).toBe(true); // bissexto
+  });
+  it("rejeita data inexistente", () => {
+    expect(isValidBirthDate("1990-02-31", "2026-08-25")).toBe(false);
+    expect(isValidBirthDate("1990-13-01", "2026-08-25")).toBe(false);
+  });
+  it("rejeita futuro e vazio", () => {
+    expect(isValidBirthDate("2030-01-01", "2026-08-25")).toBe(false);
+    expect(isValidBirthDate("")).toBe(false);
+  });
+});
+
+describe("computeCalories com idade derivada", () => {
+  it("idade vinda da data de nascimento dá o mesmo BMR da idade digitada", () => {
+    const age = ageFromBirthDate("1998-01-10", "2026-08-25"); // 28
+    const res = computeCalories({
+      hasWeights: true, currentWeight: 110, height: 175, age, sex: "M", trainDays: 3, deficitPct: 15,
+    });
+    expect(age).toBe(28);
+    expect(res.bmr).toBe(2059);
+    expect(res.tdee).toBe(2831);
+    expect(res.target).toBe(2406);
   });
 });

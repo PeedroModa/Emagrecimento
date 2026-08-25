@@ -1,14 +1,15 @@
 import { useState, useRef } from "react";
-import { Download, Upload, Copy, LogOut } from "lucide-react";
+import { Download, Upload, Copy, LogOut, KeyRound } from "lucide-react";
 import { useAuth, signOut } from "../hooks/useAuth.js";
 import { useWeighIns } from "../hooks/useWeighIns.js";
 import { useSettings } from "../hooks/useSettings.js";
-import { parseDecimal } from "../lib/calculations.js";
+import { parseDecimal, todayISO, isValidBirthDate } from "../lib/calculations.js";
 import { buildExportJSON, downloadJSON, parseImportJSON } from "../lib/backup.js";
 import SectionHeader from "../components/layout/SectionHeader.jsx";
 import ConfirmModal from "../components/ui/ConfirmModal.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 import { useToast, Toast } from "../components/ui/Toast.jsx";
+import TrocarSenha from "./TrocarSenha.jsx";
 
 function NumField({ label, value, onCommit, suffix, width = 110 }) {
   const [draft, setDraft] = useState(null);
@@ -45,6 +46,7 @@ export default function Ajustes() {
   const { toast, show } = useToast();
   const [confirm, setConfirm] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [trocandoSenha, setTrocandoSenha] = useState(false);
   const fileRef = useRef(null);
 
   const set = (patch) => save(patch, user.id);
@@ -141,12 +143,21 @@ export default function Ajustes() {
       </div>
 
       <div className="card">
-        <SectionHeader title="Perfil físico" subtitle="usados no IMC, no Navy e no Mifflin-St Jeor" />
+        <SectionHeader title="Perfil físico" subtitle="a idade vem da data de nascimento e se atualiza sozinha" />
         <div className="flex-row" style={{ gap: 16, alignItems: "flex-end" }}>
           <NumField label="altura" value={settings.height_cm} suffix="cm"
             onCommit={(v) => v >= 100 && v <= 250 && set({ height_cm: Math.round(v) })} />
-          <NumField label="idade" value={settings.age} suffix="anos"
-            onCommit={(v) => v >= 10 && v <= 120 && set({ age: Math.round(v) })} />
+          <label style={{ width: 170 }}>
+            <span className="small-label">data de nascimento</span>
+            <input
+              type="date" value={(settings.birth_date || "").slice(0, 10)}
+              min="1906-01-01" max={todayISO()}
+              onChange={(e) => { if (isValidBirthDate(e.target.value)) set({ birth_date: e.target.value }); }}
+            />
+            <span style={{ fontSize: ".76rem", color: "var(--t3)", display: "block", marginTop: 3 }}>
+              {settings.age} anos — calculado sozinho
+            </span>
+          </label>
           <div>
             <span className="small-label">sexo</span>
             <div className="flex-row" style={{ gap: 4 }}>
@@ -200,12 +211,26 @@ export default function Ajustes() {
       </div>
 
       <div className="card">
+        <SectionHeader title="Senha" subtitle="usada no login por e-mail e senha" />
+        {trocandoSenha ? (
+          <TrocarSenha
+            onDone={() => { setTrocandoSenha(false); show("Senha alterada."); }}
+            onCancel={() => setTrocandoSenha(false)}
+          />
+        ) : (
+          <button className="btn-secondary" onClick={() => setTrocandoSenha(true)}>
+            <KeyRound size={15} /> Trocar senha
+          </button>
+        )}
+      </div>
+
+      <div className="card">
         <SectionHeader title="Sessão" />
         <button
           className="btn-secondary"
           onClick={() => setConfirm({
             title: "Sair da conta?",
-            message: "Seus dados ficam guardados no Supabase. Para voltar, basta pedir um novo link mágico.",
+            message: "Seus dados ficam guardados no Supabase. Para voltar, entre de novo com seu e-mail e senha.",
             confirmLabel: "Sair",
             onConfirm: async () => { setConfirm(null); await signOut(); },
             onCancel: () => setConfirm(null),

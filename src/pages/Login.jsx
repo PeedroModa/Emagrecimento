@@ -1,29 +1,47 @@
 import { useState } from "react";
-import { Weight, Mail } from "lucide-react";
-import { signInWithMagicLink } from "../hooks/useAuth.js";
+import { Weight, Mail, LogIn, Eye, EyeOff } from "lucide-react";
+import { signInWithPassword, signInWithMagicLink } from "../hooks/useAuth.js";
 
 export default function Login() {
+  const [mode, setMode] = useState("password"); // password | magic
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [state, setState] = useState("idle"); // idle | sending | sent | error
   const [errMsg, setErrMsg] = useState("");
 
-  async function handleSubmit(e) {
+  function fail(msg) {
+    setState("error");
+    setErrMsg(msg);
+  }
+
+  async function handlePassword(e) {
     e.preventDefault();
     const clean = email.trim().toLowerCase();
-    if (!clean || !clean.includes("@")) {
-      setState("error");
-      setErrMsg("Digite um e-mail válido.");
-      return;
-    }
+    if (!clean.includes("@")) return fail("Digite um e-mail válido.");
+    if (!password) return fail("Digite a senha.");
+    setState("sending");
+    setErrMsg("");
+    const { error } = await signInWithPassword(clean, password);
+    if (error) fail(error);
+    // sucesso: o onAuthStateChange do useAuth troca a tela sozinho
+  }
+
+  async function handleMagic(e) {
+    e.preventDefault();
+    const clean = email.trim().toLowerCase();
+    if (!clean.includes("@")) return fail("Digite um e-mail válido.");
     setState("sending");
     setErrMsg("");
     const { error } = await signInWithMagicLink(clean);
-    if (error) {
-      setState("error");
-      setErrMsg("Não consegui enviar o link. Verifique o e-mail e tente de novo.");
-    } else {
-      setState("sent");
-    }
+    if (error) fail("Não consegui enviar o link. Verifique o e-mail e tente de novo.");
+    else setState("sent");
+  }
+
+  function switchMode(next) {
+    setMode(next);
+    setState("idle");
+    setErrMsg("");
   }
 
   return (
@@ -36,10 +54,14 @@ export default function Login() {
         </div>
         <div>
           <h1 className="login-title">Painel de Peso</h1>
-          <p className="login-sub">Acompanhamento de peso e composição corporal.<br />Entre com o link mágico por e-mail — sem senha.</p>
+          <p className="login-sub">
+            Acompanhamento de peso e composição corporal.
+            <br />
+            {mode === "password" ? "Entre com seu e-mail e senha." : "Entre com o link mágico por e-mail — sem senha."}
+          </p>
         </div>
 
-        {state === "sent" ? (
+        {mode === "magic" && state === "sent" ? (
           <div role="status" style={{ textAlign: "center" }}>
             <p className="msg-ok" style={{ fontSize: ".92rem", lineHeight: 1.6 }}>
               Link enviado para <strong>{email.trim().toLowerCase()}</strong>.
@@ -50,7 +72,11 @@ export default function Login() {
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }} noValidate>
+          <form
+            onSubmit={mode === "password" ? handlePassword : handleMagic}
+            style={{ display: "flex", flexDirection: "column", gap: 12 }}
+            noValidate
+          >
             <label>
               <span className="small-label">e-mail</span>
               <input
@@ -59,9 +85,42 @@ export default function Login() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </label>
+
+            {mode === "password" && (
+              <label>
+                <span className="small-label">senha</span>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input
+                    type={showPw ? "text" : "password"} value={password} placeholder="••••••••"
+                    autoComplete="current-password"
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    type="button" className="btn-ghost"
+                    aria-label={showPw ? "Ocultar senha" : "Mostrar senha"}
+                    onClick={() => setShowPw((v) => !v)}
+                  >
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </label>
+            )}
+
             {state === "error" && <p className="msg-error" role="alert">{errMsg}</p>}
+
             <button type="submit" className="btn-primary" disabled={state === "sending"}>
-              <Mail size={16} /> {state === "sending" ? "Enviando..." : "Enviar link de acesso"}
+              {mode === "password" ? (
+                <><LogIn size={16} /> {state === "sending" ? "Entrando..." : "Entrar"}</>
+              ) : (
+                <><Mail size={16} /> {state === "sending" ? "Enviando..." : "Enviar link de acesso"}</>
+              )}
+            </button>
+
+            <button
+              type="button" className="btn-ghost" style={{ alignSelf: "center" }}
+              onClick={() => switchMode(mode === "password" ? "magic" : "password")}
+            >
+              {mode === "password" ? "entrar com link mágico" : "entrar com senha"}
             </button>
           </form>
         )}
