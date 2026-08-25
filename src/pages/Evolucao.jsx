@@ -5,7 +5,7 @@ import { useWeighIns } from "../hooks/useWeighIns.js";
 import { useSettings } from "../hooks/useSettings.js";
 import {
   computeSeries, computeTrend, computeRecords, fmtDateBR,
-  AVG_WINDOW_DAYS, TREND_WINDOW_OPTIONS, trendWindowDaysFor,
+  AVG_WINDOW_DAYS, TREND_WINDOW_OPTIONS, regressionWindowFor,
 } from "../lib/calculations.js";
 import WeightChart from "../components/weigh/WeightChart.jsx";
 import TrendCard from "../components/weigh/TrendCard.jsx";
@@ -33,7 +33,7 @@ export default function Evolucao() {
     [weighIns, settings.height_cm, windowDays]
   );
   const trend = useMemo(
-    () => computeTrend(weighIns, goal, settings.height_cm, trendWindowDaysFor(windowDays)),
+    () => computeTrend(weighIns, goal, settings.height_cm, regressionWindowFor(windowDays)),
     [weighIns, goal, settings.height_cm, windowDays]
   );
   const records = useMemo(() => computeRecords(weighIns), [weighIns]);

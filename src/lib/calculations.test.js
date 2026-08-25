@@ -3,7 +3,7 @@ import {
   navyBodyFat, linearSlope, bmi, bmiCategory, computeRecords, computeSeries, daysBetween,
   computeTrend, computeSignalRead, computeLastChange, computeCalories, computeMacros,
   computeSimulator, rateStatus, activityFactor, ageFromBirthDate, isValidBirthDate,
-  AVG_WINDOW_DAYS, TREND_WINDOW_DAYS, TREND_WINDOW_OPTIONS, trendWindowDaysFor,
+  AVG_WINDOW_DAYS, TREND_WINDOW_DAYS, TREND_WINDOW_OPTIONS, regressionWindowFor, regressionWeeksFor,
 } from "./calculations.js";
 
 function w(date, weight, extra = {}) {
@@ -325,13 +325,20 @@ function expectedAvg(logs, endIdx, windowDays) {
   return +(inWindow.reduce((sum, o) => sum + o.weight, 0) / inWindow.length).toFixed(2);
 }
 
-describe("trendWindowDaysFor", () => {
-  it("mantém o par histórico da janela padrão (média 27d / regressão 28d)", () => {
-    expect(trendWindowDaysFor(AVG_WINDOW_DAYS)).toBe(TREND_WINDOW_DAYS);
-    expect(trendWindowDaysFor(27)).toBe(28);
+describe("regressionWindowFor — janela da regressão estendida ao múltiplo de 7", () => {
+  it("o par histórico do painel é o caso particular da regra", () => {
+    expect(regressionWindowFor(AVG_WINDOW_DAYS)).toBe(TREND_WINDOW_DAYS);
+    expect(regressionWindowFor(27)).toBe(28);
   });
-  it("nas janelas maiores média e regressão usam o mesmo valor", () => {
-    for (const d of [60, 90, 180, 365]) expect(trendWindowDaysFor(d)).toBe(d);
+  it("generaliza para todas as janelas", () => {
+    expect(TREND_WINDOW_OPTIONS.map(regressionWindowFor)).toEqual([28, 63, 91, 182, 371]);
+  });
+  it("é idempotente: janela já múltipla de 7 não muda", () => {
+    for (const d of [7, 28, 63, 91, 182, 371]) expect(regressionWindowFor(d)).toBe(d);
+  });
+  it("sempre cobre semanas cheias, e o padrão são 4 semanas", () => {
+    expect(regressionWeeksFor(AVG_WINDOW_DAYS)).toBe(4);
+    expect(TREND_WINDOW_OPTIONS.map(regressionWeeksFor)).toEqual([4, 9, 13, 26, 53]);
   });
   it("expõe exatamente as cinco opções, com 27 primeiro", () => {
     expect(TREND_WINDOW_OPTIONS).toEqual([27, 60, 90, 180, 365]);
@@ -400,8 +407,28 @@ describe("computeTrend — kg/semana acompanha a janela selecionada", () => {
     expect(computeTrend(logs, 90, 175, 365).sample).toBe(53);
   });
 
+  it("a extensão recupera exatamente a pesagem de maior alavanca (1 a mais)", () => {
+    for (const d of TREND_WINDOW_OPTIONS) {
+      const cru = computeTrend(logs, 90, 175, d).sample;
+      const estendido = computeTrend(logs, 90, 175, regressionWindowFor(d)).sample;
+      expect(estendido).toBe(cru + 1);
+    }
+  });
+
+  it("a extensão dobra a alavanca no padrão (variância do kg/semana cai à metade)", () => {
+    // Σ(x-x̄)² dos pontos usados: 4 pontos semanais = 245, 5 pontos = 490.
+    const alavanca = (win) => {
+      const end = logs[logs.length - 1].date;
+      const xs = logs.filter((o) => daysBetween(o.date, end) <= win).map((o) => daysBetween(logs[0].date, o.date));
+      const m = xs.reduce((a, b) => a + b, 0) / xs.length;
+      return xs.reduce((a, x) => a + (x - m) ** 2, 0);
+    };
+    expect(alavanca(AVG_WINDOW_DAYS)).toBe(245);
+    expect(alavanca(regressionWindowFor(AVG_WINDOW_DAYS))).toBe(490);
+  });
+
   it("as 5 janelas devolvem um ritmo válido e a janela longa vê a queda maior", () => {
-    const ritmos = TREND_WINDOW_OPTIONS.map((d) => computeTrend(logs, 90, 175, trendWindowDaysFor(d)).lossPerWeek);
+    const ritmos = TREND_WINDOW_OPTIONS.map((d) => computeTrend(logs, 90, 175, regressionWindowFor(d)).lossPerWeek);
     for (const r of ritmos) expect(Number.isFinite(r)).toBe(true);
     expect(ritmos[0]).toBeLessThan(0.1);          // 27d: estagnado
     expect(ritmos[ritmos.length - 1]).toBeGreaterThan(0.3); // 365d: queda do ano
@@ -410,6 +437,6 @@ describe("computeTrend — kg/semana acompanha a janela selecionada", () => {
   it("sem janela explícita, continua idêntico ao comportamento antigo (28 dias)", () => {
     const padrao = computeTrend(logs, 90, 175);
     expect(padrao).toEqual(computeTrend(logs, 90, 175, TREND_WINDOW_DAYS));
-    expect(padrao).toEqual(computeTrend(logs, 90, 175, trendWindowDaysFor(AVG_WINDOW_DAYS)));
+    expect(padrao).toEqual(computeTrend(logs, 90, 175, regressionWindowFor(AVG_WINDOW_DAYS)));
   });
 });

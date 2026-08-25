@@ -7,17 +7,33 @@ export const DEFAULT_BF = 15;
 export const DEFAULT_HEIGHT_CM = 175;
 export const RATE_HEALTHY = [0.4, 1.0]; // kg/semana
 export const AVG_WINDOW_DAYS = 27; // janela da média móvel (~4 semanas, adequado a pesagem semanal)
-export const TREND_WINDOW_DAYS = 28; // janela da regressão de tendência
+export const TREND_WINDOW_DAYS = 28; // janela da regressão na opção padrão (= 4 semanas cheias)
 
 // Janelas de análise oferecidas ao usuário na Evolução. 27 dias é o padrão e
 // continua sendo o comportamento inicial do painel.
 export const TREND_WINDOW_OPTIONS = [27, 60, 90, 180, 365];
 
-// A janela padrão sempre foi um par: 27 dias na média móvel e 28 na regressão
-// (ambas "4 semanas"). Mantemos essa dupla intacta para não mudar nenhum número
-// já exibido; nas janelas maiores média e regressão usam o mesmo valor.
-export function trendWindowDaysFor(avgWindowDays) {
-  return avgWindowDays === AVG_WINDOW_DAYS ? TREND_WINDOW_DAYS : avgWindowDays;
+// A regressão usa uma janela ligeiramente maior que a média móvel: o múltiplo
+// de 7 seguinte. 27→28, 60→63, 90→91, 180→182, 365→371.
+//
+// Motivo: medir N semanas de tendência exige N+1 pesagens (N intervalos). Com
+// pesagem semanal, uma janela que termina logo ANTES de um múltiplo de 7
+// descarta exatamente a pesagem mais antiga — e numa regressão o peso de cada
+// ponto é proporcional à distância dele do centro, então essa é justamente a de
+// maior alavanca. No padrão, cortá-la derruba Σ(x-x̄)² de 490 para 245, ou seja,
+// DOBRA a variância do kg/semana (~49% mais ruído, sem ganho de acurácia).
+// O 28 histórico do painel é o caso particular desta regra.
+//
+// A média móvel NÃO usa esta extensão: ali todos os pontos pesam igual, e a
+// janela escolhida vale como está.
+export function regressionWindowFor(windowDays) {
+  return Math.ceil(windowDays / 7) * 7;
+}
+
+// Semanas cheias cobertas pela regressão — é isso que o card de tendência
+// anuncia, para o rótulo bater com o número exibido.
+export function regressionWeeksFor(windowDays) {
+  return regressionWindowFor(windowDays) / 7;
 }
 export const NOISE_FLOOR = 0.2; // piso do desvio-padrão do "é real ou ruído?"
 export const BF_FLOOR = 10; // trava fisiológica da projeção de composição

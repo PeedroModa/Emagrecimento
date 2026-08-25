@@ -1,10 +1,11 @@
 import { TrendingDown, TrendingUp, Minus, AlertTriangle, Info, Ruler } from "lucide-react";
-import { rateStatus } from "../../lib/calculations.js";
+import { rateStatus, regressionWeeksFor, AVG_WINDOW_DAYS } from "../../lib/calculations.js";
 
 const RATE_ICONS = { rising: TrendingUp, below: Minus, fast: AlertTriangle, healthy: TrendingDown };
 
-export default function TrendCard({ trend, goal, windowDays = 28 }) {
+export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS }) {
   if (!trend) return null;
+  const semanas = regressionWeeksFor(windowDays);
   const status = rateStatus(trend);
   const Icon = RATE_ICONS[status.key];
   const markerLeft = Math.max(0, Math.min(100, ((trend.lossPerWeek + 0.4) / 1.9) * 100));
@@ -13,7 +14,7 @@ export default function TrendCard({ trend, goal, windowDays = 28 }) {
     <div className="card">
       <div className="flex-between">
         <div>
-          <div className="card-label" style={{ marginBottom: 4 }}>Tendência · últimos {windowDays} dias</div>
+          <div className="card-label" style={{ marginBottom: 4 }}>Tendência · últimas {semanas} semanas</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span className="hero-num" style={{ fontSize: "2rem", color: status.color }}>
               {trend.lossPerWeek > 0 ? "−" : "+"}{Math.abs(trend.lossPerWeek)}
