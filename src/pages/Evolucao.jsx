@@ -3,7 +3,10 @@ import { LineChart } from "lucide-react";
 import { useAuth } from "../hooks/useAuth.js";
 import { useWeighIns } from "../hooks/useWeighIns.js";
 import { useSettings } from "../hooks/useSettings.js";
-import { computeSeries, computeTrend, computeRecords, fmtDateBR } from "../lib/calculations.js";
+import {
+  computeSeries, computeTrend, computeRecords, fmtDateBR,
+  AVG_WINDOW_DAYS, TREND_WINDOW_OPTIONS, trendWindowDaysFor,
+} from "../lib/calculations.js";
 import WeightChart from "../components/weigh/WeightChart.jsx";
 import TrendCard from "../components/weigh/TrendCard.jsx";
 import RecordsCard from "../components/weigh/RecordsCard.jsx";
@@ -21,10 +24,18 @@ export default function Evolucao() {
   const { settings } = useSettings();
   const { toast, show } = useToast();
   const [confirm, setConfirm] = useState(null);
+  // Preferência de visualização apenas: não persiste e não toca nas pesagens.
+  const [windowDays, setWindowDays] = useState(AVG_WINDOW_DAYS);
 
   const goal = settings.goal_kg;
-  const series = useMemo(() => computeSeries(weighIns, settings.height_cm), [weighIns, settings.height_cm]);
-  const trend = useMemo(() => computeTrend(weighIns, goal, settings.height_cm), [weighIns, goal, settings.height_cm]);
+  const series = useMemo(
+    () => computeSeries(weighIns, settings.height_cm, windowDays),
+    [weighIns, settings.height_cm, windowDays]
+  );
+  const trend = useMemo(
+    () => computeTrend(weighIns, goal, settings.height_cm, trendWindowDaysFor(windowDays)),
+    [weighIns, goal, settings.height_cm, windowDays]
+  );
   const records = useMemo(() => computeRecords(weighIns), [weighIns]);
 
   const bfEntries = series.filter((s) => s.bf != null);
@@ -98,21 +109,35 @@ export default function Evolucao() {
 
       {/* Gráfico de linha */}
       <div className="card">
-        <SectionHeader title="Curva de peso" subtitle="peso · média móvel de 27 dias · linha da meta" />
+        <div className="flex-between" style={{ gap: 12, flexWrap: "wrap" }}>
+          <SectionHeader title="Curva de peso" subtitle={`peso · tendência de ${windowDays} dias · linha da meta`} />
+          <label className="trend-window">
+            <span>Tendência:</span>
+            <select
+              value={windowDays}
+              aria-label="Janela de análise da tendência"
+              onChange={(e) => setWindowDays(+e.target.value)}
+            >
+              {TREND_WINDOW_OPTIONS.map((d) => (
+                <option key={d} value={d}>{d} dias</option>
+              ))}
+            </select>
+          </label>
+        </div>
         {series.length >= 2 ? (
-          <WeightChart series={series} goal={goal} />
+          <WeightChart series={series} goal={goal} windowDays={windowDays} />
         ) : (
           <EmptyState
             icon={<LineChart size={28} />}
             title="O gráfico acende com 2 pesagens"
             text={series.length === 1
-              ? "Você tem 1 pesagem. Registre a próxima e a curva de evolução aparece aqui, com média móvel e linha da meta."
-              : "Registre pesagens na página Hoje e a curva de evolução aparece aqui, com média móvel e linha da meta."}
+              ? "Você tem 1 pesagem. Registre a próxima e a curva de evolução aparece aqui, com a linha de tendência e a linha da meta."
+              : "Registre pesagens na página Hoje e a curva de evolução aparece aqui, com a linha de tendência e a linha da meta."}
           />
         )}
       </div>
 
-      <TrendCard trend={trend} goal={goal} />
+      <TrendCard trend={trend} goal={goal} windowDays={windowDays} />
       <RecordsCard records={records} />
       <RecompCard fatDelta={fatDelta} leanDelta={leanDelta} waistDelta={waistDelta} />
       <ProgressionBars series={series} goal={goal} />

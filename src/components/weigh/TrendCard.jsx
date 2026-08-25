@@ -3,7 +3,7 @@ import { rateStatus } from "../../lib/calculations.js";
 
 const RATE_ICONS = { rising: TrendingUp, below: Minus, fast: AlertTriangle, healthy: TrendingDown };
 
-export default function TrendCard({ trend, goal }) {
+export default function TrendCard({ trend, goal, windowDays = 28 }) {
   if (!trend) return null;
   const status = rateStatus(trend);
   const Icon = RATE_ICONS[status.key];
@@ -13,7 +13,7 @@ export default function TrendCard({ trend, goal }) {
     <div className="card">
       <div className="flex-between">
         <div>
-          <div className="card-label" style={{ marginBottom: 4 }}>Tendência · últimas 4 semanas</div>
+          <div className="card-label" style={{ marginBottom: 4 }}>Tendência · últimos {windowDays} dias</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span className="hero-num" style={{ fontSize: "2rem", color: status.color }}>
               {trend.lossPerWeek > 0 ? "−" : "+"}{Math.abs(trend.lossPerWeek)}

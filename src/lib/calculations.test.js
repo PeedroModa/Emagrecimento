@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
-  navyBodyFat, linearSlope, bmi, bmiCategory, computeRecords, computeSeries,
+  navyBodyFat, linearSlope, bmi, bmiCategory, computeRecords, computeSeries, daysBetween,
   computeTrend, computeSignalRead, computeLastChange, computeCalories, computeMacros,
   computeSimulator, rateStatus, activityFactor, ageFromBirthDate, isValidBirthDate,
+  AVG_WINDOW_DAYS, TREND_WINDOW_DAYS, TREND_WINDOW_OPTIONS, trendWindowDaysFor,
 } from "./calculations.js";
 
 function w(date, weight, extra = {}) {
@@ -303,5 +304,112 @@ describe("computeCalories com idade derivada", () => {
     expect(res.bmr).toBe(2059);
     expect(res.tdee).toBe(2831);
     expect(res.target).toBe(2406);
+  });
+});
+
+// ── Janela de análise selecionável (27 / 60 / 90 / 180 / 365) ────────────────
+
+// Pesagens SEMANAIS, como as reais: 1 ponto a cada 7 dias, nada entre eles.
+function weeklyLogs(n, startISO, weightAt) {
+  const start = new Date(`${startISO}T00:00:00Z`);
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(start.getTime() + i * 7 * 86400000);
+    return w(d.toISOString().slice(0, 10), weightAt(i));
+  });
+}
+
+// Média esperada = só as pesagens reais dentro da janela, sem interpolar nada.
+function expectedAvg(logs, endIdx, windowDays) {
+  const end = logs[endIdx].date;
+  const inWindow = logs.filter((o, i) => i <= endIdx && daysBetween(o.date, end) <= windowDays);
+  return +(inWindow.reduce((sum, o) => sum + o.weight, 0) / inWindow.length).toFixed(2);
+}
+
+describe("trendWindowDaysFor", () => {
+  it("mantém o par histórico da janela padrão (média 27d / regressão 28d)", () => {
+    expect(trendWindowDaysFor(AVG_WINDOW_DAYS)).toBe(TREND_WINDOW_DAYS);
+    expect(trendWindowDaysFor(27)).toBe(28);
+  });
+  it("nas janelas maiores média e regressão usam o mesmo valor", () => {
+    for (const d of [60, 90, 180, 365]) expect(trendWindowDaysFor(d)).toBe(d);
+  });
+  it("expõe exatamente as cinco opções, com 27 primeiro", () => {
+    expect(TREND_WINDOW_OPTIONS).toEqual([27, 60, 90, 180, 365]);
+    expect(TREND_WINDOW_OPTIONS[0]).toBe(AVG_WINDOW_DAYS);
+  });
+});
+
+describe("computeSeries — janelas selecionáveis", () => {
+  // 60 semanas de queda constante: cobre até a janela de 365 dias
+  const logs = weeklyLogs(60, "2025-06-01", (i) => 110 - i * 0.3);
+
+  it("a média usa só as pesagens reais dentro da janela, nas 5 opções", () => {
+    for (const win of TREND_WINDOW_OPTIONS) {
+      const series = computeSeries(logs, 175, win);
+      const last = series[series.length - 1];
+      expect(last.media).toBe(expectedAvg(logs, logs.length - 1, win));
+    }
+  });
+
+  it("a contagem de pesagens na janela bate com a frequência semanal (sem inventar dias)", () => {
+    const end = logs[logs.length - 1].date;
+    const dentro = (win) => logs.filter((o) => daysBetween(o.date, end) <= win).length;
+    expect(dentro(27)).toBe(4);    // ~3-4 pesagens, como no enunciado
+    expect(dentro(60)).toBe(9);
+    expect(dentro(90)).toBe(13);
+    expect(dentro(180)).toBe(26);
+    expect(dentro(365)).toBe(53);
+  });
+
+  it("janela maior => linha mais suave (mais longe do peso bruto)", () => {
+    const dist = (win) => {
+      const series = computeSeries(logs, 175, win);
+      const last = series[series.length - 1];
+      return Math.abs(last.media - last.peso);
+    };
+    const distancias = TREND_WINDOW_OPTIONS.map(dist);
+    for (let i = 1; i < distancias.length; i++) {
+      expect(distancias[i]).toBeGreaterThan(distancias[i - 1]);
+    }
+  });
+
+  it("sem janela explícita, continua em 27 dias (padrão do painel)", () => {
+    const series = computeSeries(logs, 175);
+    const explicito = computeSeries(logs, 175, AVG_WINDOW_DAYS);
+    expect(series.map((s) => s.media)).toEqual(explicito.map((s) => s.media));
+  });
+
+  it("peso bruto não muda com a janela", () => {
+    const base = computeSeries(logs, 175, 27).map((s) => s.peso);
+    for (const win of TREND_WINDOW_OPTIONS) {
+      expect(computeSeries(logs, 175, win).map((s) => s.peso)).toEqual(base);
+    }
+  });
+});
+
+describe("computeTrend — kg/semana acompanha a janela selecionada", () => {
+  // Perda rápida no ano todo, mas quase estagnada no último mês:
+  // a janela curta enxerga a estagnação, a longa enxerga a queda.
+  const logs = weeklyLogs(60, "2025-06-01", (i) => (i < 54 ? 110 - i * 0.5 : 83 - (i - 54) * 0.05));
+
+  it("cada janela usa só as pesagens reais do período", () => {
+    expect(computeTrend(logs, 90, 175, 27).sample).toBe(4);
+    expect(computeTrend(logs, 90, 175, 60).sample).toBe(9);
+    expect(computeTrend(logs, 90, 175, 90).sample).toBe(13);
+    expect(computeTrend(logs, 90, 175, 180).sample).toBe(26);
+    expect(computeTrend(logs, 90, 175, 365).sample).toBe(53);
+  });
+
+  it("as 5 janelas devolvem um ritmo válido e a janela longa vê a queda maior", () => {
+    const ritmos = TREND_WINDOW_OPTIONS.map((d) => computeTrend(logs, 90, 175, trendWindowDaysFor(d)).lossPerWeek);
+    for (const r of ritmos) expect(Number.isFinite(r)).toBe(true);
+    expect(ritmos[0]).toBeLessThan(0.1);          // 27d: estagnado
+    expect(ritmos[ritmos.length - 1]).toBeGreaterThan(0.3); // 365d: queda do ano
+  });
+
+  it("sem janela explícita, continua idêntico ao comportamento antigo (28 dias)", () => {
+    const padrao = computeTrend(logs, 90, 175);
+    expect(padrao).toEqual(computeTrend(logs, 90, 175, TREND_WINDOW_DAYS));
+    expect(padrao).toEqual(computeTrend(logs, 90, 175, trendWindowDaysFor(AVG_WINDOW_DAYS)));
   });
 });

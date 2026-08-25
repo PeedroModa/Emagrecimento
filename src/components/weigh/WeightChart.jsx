@@ -5,7 +5,7 @@ import {
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend, Filler);
 
-export default function WeightChart({ series, goal }) {
+export default function WeightChart({ series, goal, windowDays = 27 }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
 
@@ -31,7 +31,7 @@ export default function WeightChart({ series, goal }) {
           fill: true,
         },
         {
-          label: "Média móvel (27d)",
+          label: `Tendência (${windowDays}d)`,
           data: medias,
           borderColor: "#5B7B8C",
           pointRadius: 0,
@@ -96,13 +96,13 @@ export default function WeightChart({ series, goal }) {
     } else {
       chartRef.current = new Chart(canvasRef.current, { type: "line", data, options });
     }
-  }, [series, goal]);
+  }, [series, goal, windowDays]);
 
   useEffect(() => () => { chartRef.current?.destroy(); chartRef.current = null; }, []);
 
   return (
     <div className="chart-wrap">
-      <canvas ref={canvasRef} role="img" aria-label="Gráfico de evolução do peso com média móvel e linha da meta" />
+      <canvas ref={canvasRef} role="img" aria-label={`Gráfico de evolução do peso com linha de tendência de ${windowDays} dias e linha da meta`} />
     </div>
   );
 }

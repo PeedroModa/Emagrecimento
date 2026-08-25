@@ -8,6 +8,17 @@ export const DEFAULT_HEIGHT_CM = 175;
 export const RATE_HEALTHY = [0.4, 1.0]; // kg/semana
 export const AVG_WINDOW_DAYS = 27; // janela da média móvel (~4 semanas, adequado a pesagem semanal)
 export const TREND_WINDOW_DAYS = 28; // janela da regressão de tendência
+
+// Janelas de análise oferecidas ao usuário na Evolução. 27 dias é o padrão e
+// continua sendo o comportamento inicial do painel.
+export const TREND_WINDOW_OPTIONS = [27, 60, 90, 180, 365];
+
+// A janela padrão sempre foi um par: 27 dias na média móvel e 28 na regressão
+// (ambas "4 semanas"). Mantemos essa dupla intacta para não mudar nenhum número
+// já exibido; nas janelas maiores média e regressão usam o mesmo valor.
+export function trendWindowDaysFor(avgWindowDays) {
+  return avgWindowDays === AVG_WINDOW_DAYS ? TREND_WINDOW_DAYS : avgWindowDays;
+}
 export const NOISE_FLOOR = 0.2; // piso do desvio-padrão do "é real ou ruído?"
 export const BF_FLOOR = 10; // trava fisiológica da projeção de composição
 
@@ -89,7 +100,9 @@ export function computeRecords(sortedWeights) {
   return { min, max, biggestDrop };
 }
 
-// Série enriquecida: média móvel (27 dias) + BF% + massa magra/gorda via Navy
+// Série enriquecida: média móvel (janela em dias, padrão 27) + BF% + massa magra/gorda
+// via Navy. A média usa SOMENTE as pesagens reais que caem dentro da janela —
+// nada é interpolado nem preenchido em dias sem pesagem.
 export function computeSeries(sortedWeights, heightCm, avgWindowDays = AVG_WINDOW_DAYS) {
   return sortedWeights.map((w, i) => {
     const win = sortedWeights.filter((o) => {
@@ -106,13 +119,14 @@ export function computeSeries(sortedWeights, heightCm, avgWindowDays = AVG_WINDO
   });
 }
 
-// Tendência via regressão dos últimos 28 dias + projeção de composição na meta
-export function computeTrend(sortedWeights, goal, heightCm) {
+// Tendência via regressão dentro da janela (padrão 28 dias) + projeção de composição
+// na meta. Só entram na regressão as pesagens reais existentes na janela.
+export function computeTrend(sortedWeights, goal, heightCm, windowDays = TREND_WINDOW_DAYS) {
   if (sortedWeights.length < 2) return null;
   const endDate = sortedWeights[sortedWeights.length - 1].date;
   const currentWeight = sortedWeights[sortedWeights.length - 1].weight;
   const pts = sortedWeights
-    .filter((w) => daysBetween(w.date, endDate) <= TREND_WINDOW_DAYS)
+    .filter((w) => daysBetween(w.date, endDate) <= windowDays)
     .map((w) => ({ x: daysBetween(sortedWeights[0].date, w.date), y: w.weight }));
   if (pts.length < 2) return null;
   const slope = linearSlope(pts);

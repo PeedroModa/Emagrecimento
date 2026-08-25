@@ -327,6 +327,23 @@ button:disabled { cursor: default; opacity: .55; }
   font-size: .9rem; color: var(--t2); text-align: center; line-height: 1.5;
 }
 
+/* ── Seletor de janela da tendência (Evolução) ── */
+.trend-window {
+  display: flex; align-items: center; gap: .4rem;
+  flex-shrink: 0; margin-bottom: .9rem;
+}
+.trend-window > span {
+  font-family: var(--font-condensed);
+  font-size: .78rem; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--t3);
+}
+.trend-window select {
+  width: auto;
+  padding: .3rem .45rem;
+  font-family: var(--font-condensed);
+  font-size: .82rem;
+}
+
 /* ── History list ── */
 .history-item {
   background: var(--card2);
