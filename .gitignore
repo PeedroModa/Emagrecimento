@@ -1,0 +1,22 @@
+# dependências
+node_modules/
+
+# builds
+dist/
+dist-ssr/
+
+# ambiente / secrets
+.env
+.env.local
+.env.*.local
+
+# logs e temporários
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.idea/

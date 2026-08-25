@@ -1,0 +1,282 @@
+// Funções puras de negócio, extraídas de painel-peso_2.jsx SEM alteração de fórmulas ou constantes.
+// Único desvio estrutural: HEIGHT_CM deixa de ser constante fixa e passa a ser parâmetro
+// (agora vem de user_settings), pois a Fase 2 tornou altura/idade/sexo configuráveis.
+
+export const DEFAULT_GOAL = 90;
+export const DEFAULT_BF = 15;
+export const DEFAULT_HEIGHT_CM = 175;
+export const RATE_HEALTHY = [0.4, 1.0]; // kg/semana
+export const AVG_WINDOW_DAYS = 27; // janela da média móvel (~4 semanas, adequado a pesagem semanal)
+export const TREND_WINDOW_DAYS = 28; // janela da regressão de tendência
+export const NOISE_FLOOR = 0.2; // piso do desvio-padrão do "é real ou ruído?"
+export const BF_FLOOR = 10; // trava fisiológica da projeção de composição
+
+export function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function fmtDateBR(iso) {
+  const p = iso.split("-");
+  return `${p[2]}/${p[1]}`;
+}
+
+export function daysBetween(a, b) {
+  return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+
+export function parseDecimal(input) {
+  if (input === "" || input == null) return NaN;
+  return parseFloat(String(input).replace(",", "."));
+}
+
+// Navy method (homens, medidas em cm) — válido só se cintura>pescoço e resultado entre 2 e 70.
+export function navyBodyFat(waist, neck, heightCm) {
+  const h = heightCm || DEFAULT_HEIGHT_CM;
+  if (!waist || !neck || waist <= neck) return null;
+  const bf = 495 / (1.0324 - 0.19077 * Math.log10(waist - neck) + 0.15456 * Math.log10(h)) - 450;
+  return bf > 2 && bf < 70 ? +bf.toFixed(1) : null;
+}
+
+// Regressão linear simples -> inclinação (unidade y por unidade x)
+export function linearSlope(points) {
+  const n = points.length;
+  if (n < 2) return null;
+  const mx = points.reduce((s, p) => s + p.x, 0) / n;
+  const my = points.reduce((s, p) => s + p.y, 0) / n;
+  let num = 0, den = 0;
+  for (const p of points) { num += (p.x - mx) * (p.y - my); den += (p.x - mx) ** 2; }
+  return den === 0 ? null : num / den;
+}
+
+export function bmi(weightKg, heightCm) {
+  if (!weightKg || !heightCm) return null;
+  return +(weightKg / ((heightCm / 100) ** 2)).toFixed(1);
+}
+
+export function bmiCategory(bmiValue) {
+  if (bmiValue == null) return null;
+  if (bmiValue < 18.5) return { label: "abaixo do peso", color: "#C9A24B" };
+  if (bmiValue < 25) return { label: "peso normal", color: "#5B7B8C" };
+  if (bmiValue < 30) return { label: "sobrepeso", color: "#C9A24B" };
+  if (bmiValue < 35) return { label: "obesidade grau I", color: "#E8552E" };
+  if (bmiValue < 40) return { label: "obesidade grau II", color: "#E8552E" };
+  return { label: "obesidade grau III", color: "#E8552E" };
+}
+
+// Recordes: menor/maior peso e maior queda numa janela de ~7 dias (entre 5 e 9 dias, a mais próxima de 7)
+export function computeRecords(sortedWeights) {
+  if (sortedWeights.length === 0) return null;
+  let min = sortedWeights[0], max = sortedWeights[0];
+  for (const w of sortedWeights) {
+    if (w.weight < min.weight) min = w;
+    if (w.weight > max.weight) max = w;
+  }
+  let biggestDrop = null;
+  for (const w of sortedWeights) {
+    const candidates = sortedWeights.filter((o) => {
+      const d = daysBetween(o.date, w.date);
+      return d >= 5 && d <= 9;
+    });
+    if (!candidates.length) continue;
+    const ref = candidates.reduce((a, b) =>
+      Math.abs(daysBetween(b.date, w.date) - 7) < Math.abs(daysBetween(a.date, w.date) - 7) ? b : a
+    );
+    const diff = +(w.weight - ref.weight).toFixed(1);
+    if (diff < 0 && (biggestDrop === null || diff < biggestDrop.diff)) {
+      biggestDrop = { diff, from: ref.date, to: w.date };
+    }
+  }
+  return { min, max, biggestDrop };
+}
+
+// Série enriquecida: média móvel (27 dias) + BF% + massa magra/gorda via Navy
+export function computeSeries(sortedWeights, heightCm, avgWindowDays = AVG_WINDOW_DAYS) {
+  return sortedWeights.map((w, i) => {
+    const win = sortedWeights.filter((o) => {
+      const d = daysBetween(o.date, w.date);
+      return d >= 0 && d <= avgWindowDays;
+    });
+    const media = win.length >= 2
+      ? +(win.reduce((s, o) => s + o.weight, 0) / win.length).toFixed(2)
+      : null;
+    const bf = navyBodyFat(w.waist, w.neck, heightCm);
+    const gordura = bf != null ? +(w.weight * bf / 100).toFixed(1) : null;
+    const magra = bf != null ? +(w.weight - gordura).toFixed(1) : null;
+    return { ...w, idx: i, label: fmtDateBR(w.date), peso: w.weight, media, bf, gordura, magra };
+  });
+}
+
+// Tendência via regressão dos últimos 28 dias + projeção de composição na meta
+export function computeTrend(sortedWeights, goal, heightCm) {
+  if (sortedWeights.length < 2) return null;
+  const endDate = sortedWeights[sortedWeights.length - 1].date;
+  const currentWeight = sortedWeights[sortedWeights.length - 1].weight;
+  const pts = sortedWeights
+    .filter((w) => daysBetween(w.date, endDate) <= TREND_WINDOW_DAYS)
+    .map((w) => ({ x: daysBetween(sortedWeights[0].date, w.date), y: w.weight }));
+  if (pts.length < 2) return null;
+  const slope = linearSlope(pts);
+  if (slope == null) return null;
+  const perWeek = +(slope * 7).toFixed(2);
+  const lossPerWeek = -perWeek;
+  const remaining = currentWeight - goal;
+  const weeksToGoal = lossPerWeek > 0.05 && remaining > 0 ? Math.ceil(remaining / lossPerWeek) : null;
+
+  // --- Projeção de composição na meta ---
+  // Usa pesagens COM cintura/pescoço (que dão massa magra/gorda via Navy). Precisa de >= 2.
+  const comp = sortedWeights
+    .map((w) => {
+      const bf = navyBodyFat(w.waist, w.neck, heightCm);
+      if (bf == null) return null;
+      const gordura = w.weight * bf / 100;
+      return { x: daysBetween(sortedWeights[0].date, w.date), weight: w.weight, fat: gordura, lean: w.weight - gordura, bf };
+    })
+    .filter(Boolean);
+
+  let projection = null;
+  if (comp.length >= 2 && weeksToGoal) {
+    const fatSlope = linearSlope(comp.map((c) => ({ x: c.x, y: c.fat })));
+    const leanSlope = linearSlope(comp.map((c) => ({ x: c.x, y: c.lean })));
+    const lastComp = comp[comp.length - 1];
+    const daysToGoal = weeksToGoal * 7;
+    if (fatSlope != null && leanSlope != null) {
+      const projFat = Math.max(0, lastComp.fat + fatSlope * daysToGoal);
+      const projLean = Math.max(0, lastComp.lean + leanSlope * daysToGoal);
+      const projTotal = projFat + projLean;
+      const scale = projTotal > 0 ? goal / projTotal : 1;
+      const fatAtGoalRaw = projFat * scale;
+      let bfAtGoal = goal > 0 ? fatAtGoalRaw / goal * 100 : null;
+      let capped = false;
+      if (bfAtGoal != null && bfAtGoal < BF_FLOOR) { bfAtGoal = BF_FLOOR; capped = true; }
+      bfAtGoal = bfAtGoal != null ? +bfAtGoal.toFixed(1) : null;
+      const fatAtGoal = bfAtGoal != null ? goal * bfAtGoal / 100 : fatAtGoalRaw;
+      const totalLossProj = lastComp.weight - goal;
+      const fatLoss = lastComp.fat - fatAtGoal;
+      const fatShare = totalLossProj > 0 ? Math.max(0, Math.min(100, Math.round(fatLoss / totalLossProj * 100))) : null;
+      projection = { bfAtGoal, fatShare, sample: comp.length, currentBf: lastComp.bf, capped };
+    }
+  }
+  const compAvailable = comp.length;
+
+  return { perWeek, lossPerWeek, weeksToGoal, sample: pts.length, projection, compAvailable };
+}
+
+// "É real ou ruído?" — compara a variação desta semana contra a variabilidade histórica
+// DO PRÓPRIO usuário (desvio-padrão das variações entre pesagens ANTERIORES, piso 0.2kg).
+export function computeSignalRead(sortedWeights) {
+  if (sortedWeights.length < 4) {
+    return { status: "insufficient", need: 4 - sortedWeights.length, count: sortedWeights.length };
+  }
+  const deltas = [];
+  for (let i = 1; i < sortedWeights.length; i++) {
+    deltas.push(sortedWeights[i].weight - sortedWeights[i - 1].weight);
+  }
+  const lastDelta = deltas[deltas.length - 1];
+  const prior = deltas.slice(0, -1);
+  const mean = prior.reduce((s, d) => s + d, 0) / prior.length;
+  const variance = prior.reduce((s, d) => s + (d - mean) ** 2, 0) / prior.length;
+  const sd = Math.sqrt(variance);
+  const recentTrend = deltas.slice(-3).reduce((s, d) => s + d, 0) / Math.min(3, deltas.length);
+  const noiseBand = +(sd || NOISE_FLOOR).toFixed(2);
+  const z = lastDelta / noiseBand;
+  const absZ = Math.abs(z);
+
+  let verdict, detail, color;
+  if (absZ < 1) {
+    verdict = "Provavelmente ruído";
+    color = "#8B8F92";
+    detail = `Você variou ${Math.abs(lastDelta).toFixed(1)}kg, e seu peso costuma oscilar ±${noiseBand}kg de uma pesagem pra outra só por água, sal e intestino. Ou seja: esse número sozinho não quer dizer que você progrediu ou regrediu. Não comemore nem se preocupe — olhe a tendência das últimas semanas, não este ponto.`;
+  } else if (absZ < 2) {
+    verdict = lastDelta < 0 ? "Talvez tenha emagrecido" : "Talvez tenha engordado";
+    color = lastDelta < 0 ? "#5B7B8C" : "#C9A24B";
+    detail = `Você ${lastDelta < 0 ? "perdeu" : "ganhou"} ${Math.abs(lastDelta).toFixed(1)}kg — um pouco mais do que sua oscilação normal (±${noiseBand}kg), mas não o bastante pra ter certeza. Pode ser mudança de verdade, pode ser um dia de água a mais ou a menos. A próxima pesagem confirma: se seguir na mesma direção, é real.`;
+  } else {
+    verdict = lastDelta < 0 ? "Emagreceu de verdade" : "Engordou de verdade";
+    color = lastDelta < 0 ? "#5B7B8C" : "#E8552E";
+    detail = `Você ${lastDelta < 0 ? "perdeu" : "ganhou"} ${Math.abs(lastDelta).toFixed(1)}kg, bem além da sua oscilação normal (±${noiseBand}kg). Isso é mudança real de massa, não flutuação de balança. ${lastDelta < 0 ? "Seu plano está funcionando." : "Se não era o esperado, vale revisar a semana."}`;
+  }
+
+  return {
+    status: "ok", lastDelta: +lastDelta.toFixed(1), noiseBand, z: +z.toFixed(1), absZ,
+    verdict, detail, color, recentTrend: +recentTrend.toFixed(2),
+    samplePrior: prior.length,
+  };
+}
+
+// Variação da última pesagem vs. a anterior
+export function computeLastChange(sortedWeights) {
+  if (sortedWeights.length < 2) return null;
+  const curr = sortedWeights[sortedWeights.length - 1];
+  const prev = sortedWeights[sortedWeights.length - 2];
+  const diff = +(curr.weight - prev.weight).toFixed(1);
+  const gapDays = daysBetween(prev.date, curr.date);
+  return { diff, gapDays, note: curr.note, prevWeight: prev.weight, date: curr.date };
+}
+
+export function rateStatus(trend) {
+  if (!trend) return null;
+  const l = trend.lossPerWeek;
+  if (l < 0) return { key: "rising", color: "#C9A24B", text: "Peso subindo na média das últimas 4 semanas." };
+  if (l < RATE_HEALTHY[0]) return { key: "below", color: "#C9A24B", text: "Ritmo abaixo do esperado. Se persistir 2-3 semanas, vale ajustar as calorias." };
+  if (l > RATE_HEALTHY[1]) return { key: "fast", color: "#E8552E", text: "Ritmo acelerado demais. Perda muito rápida costuma vir com massa magra junto." };
+  return { key: "healthy", color: "#5B7B8C", text: "Ritmo dentro da faixa saudável para recomposição." };
+}
+
+// Fatores de atividade por treinos/semana (Mifflin-St Jeor)
+export function activityFactor(trainDays) {
+  if (trainDays <= 0) return { factor: 1.2, label: "sedentário" };
+  if (trainDays <= 3) return { factor: 1.375, label: "leve" };
+  if (trainDays <= 5) return { factor: 1.55, label: "moderado" };
+  return { factor: 1.725, label: "intenso" };
+}
+
+// Mifflin-St Jeor -> TDEE -> alvo com déficit
+export function computeCalories({ hasWeights, currentWeight, height, age, sex, trainDays, deficitPct }) {
+  const { factor, label: factorLabel } = activityFactor(trainDays);
+  if (!hasWeights) return { bmr: null, tdee: null, target: null, factor, factorLabel };
+  const w = currentWeight, h = +height || DEFAULT_HEIGHT_CM, a = +age || 28;
+  const bmr = 10 * w + 6.25 * h - 5 * a + (sex === "M" ? 5 : -161);
+  const tdee = bmr * factor;
+  const target = tdee * (1 - deficitPct / 100);
+  return { bmr: Math.round(bmr), tdee: Math.round(tdee), target: Math.round(target), factor, factorLabel };
+}
+
+// Macros: 4 kcal/g proteína, 4 kcal/g carbo, 9 kcal/g gordura
+export function computeMacros({ hasWeights, kcal, currentWeight, protPct, fatPct, protPerKg, fatPerKg }) {
+  if (!hasWeights || kcal == null) return null;
+
+  // --- Modo por % (proteína e gordura ajustáveis, carbo = resto, nunca negativo) ---
+  const pPct = Math.max(0, Math.min(100, +protPct || 0));
+  const fPct = Math.max(0, Math.min(100 - pPct, +fatPct || 0));
+  const cPct = Math.max(0, 100 - pPct - fPct);
+  const byPct = {
+    prot: { pct: pPct, kcal: Math.round(kcal * pPct / 100), g: Math.round(kcal * pPct / 100 / 4) },
+    carb: { pct: cPct, kcal: Math.round(kcal * cPct / 100), g: Math.round(kcal * cPct / 100 / 4) },
+    fat: { pct: fPct, kcal: Math.round(kcal * fPct / 100), g: Math.round(kcal * fPct / 100 / 9) },
+  };
+
+  // --- Modo por peso (proteína/gordura por g/kg, carbo = resto das kcal, clamp em 0) ---
+  const w = currentWeight;
+  const protG = Math.round((+protPerKg || 0) * w);
+  const fatG = Math.round((+fatPerKg || 0) * w);
+  const protKcal = protG * 4;
+  const fatKcal = fatG * 9;
+  const carbKcal = Math.max(0, kcal - protKcal - fatKcal);
+  const carbG = Math.round(carbKcal / 4);
+  const byWeight = {
+    prot: { perKg: +protPerKg || 0, g: protG, kcal: protKcal, pct: Math.round(protKcal / kcal * 100) },
+    carb: { g: carbG, kcal: Math.round(carbKcal), pct: Math.round(carbKcal / kcal * 100) },
+    fat: { perKg: +fatPerKg || 0, g: fatG, kcal: fatKcal, pct: Math.round(fatKcal / kcal * 100) },
+    overflow: protKcal + fatKcal > kcal,
+  };
+
+  return { kcal, byPct, byWeight };
+}
+
+// Simulador de ritmo: slider 0.1-1.5 kg/semana (step 0.05)
+export function computeSimulator(remainingToGoal, simRate) {
+  const weeks = remainingToGoal > 0 && simRate > 0 ? Math.ceil(remainingToGoal / simRate) : 0;
+  const date = new Date(Date.now() + weeks * 7 * 86400000);
+  const dateLabel = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  return { weeks, dateLabel, months: Math.round(weeks / 4.345) };
+}

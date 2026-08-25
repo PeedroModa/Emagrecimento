@@ -1,0 +1,597 @@
+Quero transformar o projeto que enviei em uma aplicação web independente, acessível em qualquer navegador moderno e pronta para publicação.
+
+IMPORTANTE: NÃO comece implementando imediatamente. Este trabalho deve ser realizado em duas fases obrigatórias.
+
+==================================================
+FASE 1 — ANÁLISE E PROPOSTA
+==================================================
+
+Antes de modificar qualquer código, analise completamente o projeto enviado e o arquivo de referência visual que anexarei.
+
+Analise, no mínimo:
+
+- todos os arquivos relevantes do projeto;
+- a stack utilizada;
+- dependências;
+- arquitetura atual;
+- componentes existentes;
+- funcionalidades existentes;
+- cálculos e regras de negócio;
+- estrutura e modelo dos dados;
+- fluxos de navegação;
+- comportamento atual da aplicação;
+- pontos que podem ser preservados;
+- pontos que precisam ser alterados;
+- pontos que precisam ser criados.
+
+Não reescreva ou substitua partes existentes sem necessidade. Preserve funcionalidades, cálculos e regras de negócio que já estejam funcionando corretamente.
+
+O arquivo de referência anexado deve ser considerado a principal fonte de verdade para:
+
+- layout;
+- arquitetura da informação;
+- padrões de navegação;
+- hierarquia visual;
+- densidade visual;
+- tipografia;
+- espaçamento;
+- estilo dos componentes;
+- gráficos;
+- tratamento de dados;
+- responsividade;
+- nível geral de acabamento.
+
+Não quero uma cópia cega da referência. Quero que você compreenda a linguagem visual e a experiência do arquivo e a adapte corretamente ao produto.
+
+Depois da análise, NÃO implemente ainda.
+
+Apresente uma proposta contendo:
+
+### 1. Diagnóstico do projeto atual
+
+Explique de forma objetiva:
+
+- o que já existe;
+- o que funciona;
+- o que deve ser preservado;
+- o que precisa ser alterado;
+- o que precisa ser criado;
+- quais são os principais problemas ou limitações encontrados.
+
+### 2. Análise da referência visual
+
+Explique o que identificou na referência em relação a:
+
+- linguagem visual;
+- hierarquia de informações;
+- navegação;
+- tipografia;
+- espaçamento;
+- componentes;
+- densidade;
+- gráficos;
+- uso de cores;
+- estados vazios;
+- loading;
+- erros;
+- feedbacks;
+- microinterações;
+- responsividade;
+- acabamento geral.
+
+### 3. Proposta de arquitetura
+
+Apresente como você pretende estruturar a aplicação:
+
+- páginas/telas;
+- navegação;
+- componentes;
+- organização dos dados;
+- gerenciamento de estado;
+- autenticação;
+- persistência;
+- sincronização;
+- integração com Supabase.
+
+### 4. Direção visual
+
+Explique como pretende adaptar a referência ao produto de acompanhamento de peso e composição corporal.
+
+Quero uma aplicação:
+
+- marcante;
+- sofisticada;
+- profissional;
+- moderna;
+- com personalidade;
+- visualmente consistente;
+- agradável de usar diariamente.
+
+Evite deliberadamente:
+
+- aparência genérica de dashboard;
+- excesso de cards idênticos;
+- componentes padrão sem personalidade;
+- telas excessivamente simples;
+- excesso de elementos visuais sem função;
+- aparência de template pronto.
+
+### 5. Decisões que precisam da minha aprovação
+
+Se você acreditar que alguma decisão importante da referência não é adequada para este produto, NÃO altere silenciosamente.
+
+Explique:
+
+1. o que você considera inadequado;
+2. por que considera inadequado;
+3. qual alternativa recomenda;
+4. quais são as vantagens e desvantagens da alternativa.
+
+Se houver mais de uma solução válida, apresente as opções e recomende uma.
+
+### 6. Plano de implementação
+
+Apresente a ordem em que pretende desenvolver o projeto, incluindo:
+
+- estrutura da aplicação;
+- interface;
+- funcionalidades;
+- Supabase;
+- autenticação;
+- persistência;
+- RLS;
+- backup/exportação;
+- responsividade;
+- testes;
+- build;
+- publicação.
+
+==================================================
+REGRA DE APROVAÇÃO
+==================================================
+
+NÃO comece a implementação após a análise.
+
+Primeiro aguarde minha aprovação da proposta.
+
+Somente depois que eu aprovar você deverá começar a modificar o código.
+
+Após minha aprovação, utilize a análise aprovada como especificação do projeto.
+
+Se durante a implementação surgir algum problema técnico ou uma decisão relevante que não tenha sido prevista na proposta e que altere significativamente a arquitetura, UX ou direção visual, pare e me consulte antes de tomar essa decisão por conta própria.
+
+==================================================
+FASE 2 — IMPLEMENTAÇÃO
+==================================================
+
+Depois da minha aprovação, implemente a aplicação conforme a proposta aprovada.
+
+## PRODUTO
+
+O produto é um painel pessoal de acompanhamento de peso e composição corporal.
+
+O objetivo é permitir acompanhar minha evolução corporal ao longo do tempo de forma visual, clara e agradável.
+
+Implemente e preserve todas as funcionalidades existentes no projeto.
+
+Preserve os cálculos existentes e suas regras de negócio.
+
+O usuário deve poder:
+
+- criar registros;
+- visualizar registros;
+- editar registros;
+- excluir registros;
+- acompanhar sua evolução;
+- consultar históricos e métricas existentes no projeto.
+
+Não altere cálculos ou regras de negócio existentes sem justificar a alteração.
+
+==================================================
+AUTENTICAÇÃO
+==================================================
+
+Os dados devem ficar persistidos no Supabase e sincronizados entre meus dispositivos.
+
+Embora seja um produto de uso exclusivamente pessoal, implemente uma autenticação mínima e sem atrito utilizando exclusivamente Magic Link por e-mail.
+
+O objetivo da autenticação é apenas:
+
+1. identificar o usuário;
+2. proteger os dados no Supabase;
+3. permitir sincronização segura entre dispositivos.
+
+O fluxo deve:
+
+- não utilizar senha;
+- não exigir cadastro tradicional;
+- não criar sistema de perfis;
+- não criar avatar;
+- não criar sistema de equipes;
+- não criar organizações;
+- utilizar o `auth.uid()` do Supabase para identificar o proprietário dos dados;
+- proteger as rotas que exigem autenticação.
+
+NÃO crie:
+
+- sistema de perfis;
+- assinaturas;
+- planos;
+- equipes;
+- organizações;
+- permissões administrativas;
+- funcionalidades comerciais;
+- sistema de convite;
+- sistema de cobrança;
+- qualquer outra funcionalidade típica de SaaS que não seja necessária para este produto pessoal.
+
+==================================================
+SUPABASE
+==================================================
+
+Utilize o Supabase como banco de dados principal.
+
+Crie toda a estrutura necessária para persistência dos dados, incluindo:
+
+- tabelas;
+- colunas;
+- tipos;
+- relacionamentos;
+- índices;
+- constraints;
+- políticas de Row Level Security.
+
+As políticas de RLS devem garantir que um usuário autenticado só consiga:
+
+- consultar seus próprios registros;
+- criar seus próprios registros;
+- editar seus próprios registros;
+- excluir seus próprios registros.
+
+Não confie apenas na interface para segurança.
+
+A segurança deve ser garantida no nível do banco de dados.
+
+Não exponha secrets, service role keys ou qualquer chave privada no frontend.
+
+Utilize somente as variáveis públicas apropriadas no cliente.
+
+==================================================
+SEGURANÇA
+==================================================
+
+Antes de considerar o projeto concluído, faça uma revisão de segurança.
+
+Verifique:
+
+- autenticação;
+- autorização;
+- RLS;
+- acesso ao banco;
+- variáveis de ambiente;
+- chaves públicas e privadas;
+- rotas protegidas;
+- operações CRUD;
+- exposição de dados;
+- possibilidade de um usuário acessar dados pertencentes a outro usuário;
+- informações sensíveis expostas no frontend;
+- secrets presentes no código ou no Git.
+
+Corrija qualquer problema encontrado antes da entrega.
+
+==================================================
+INTERFACE E EXPERIÊNCIA
+==================================================
+
+A experiência visual deve ser marcante, sofisticada e profissional.
+
+A referência visual deve orientar a linguagem da aplicação, mas a interface precisa fazer sentido especificamente para acompanhamento de peso e composição corporal.
+
+Evite:
+
+- dashboard genérico;
+- excesso de cards;
+- dezenas de indicadores sem hierarquia;
+- componentes visualmente repetitivos;
+- tabelas desnecessárias;
+- telas excessivamente simples;
+- aparência de template;
+- componentes padrão sem personalidade.
+
+Estabeleça uma direção visual clara.
+
+Utilize:
+
+- hierarquia tipográfica forte;
+- espaçamento intencional;
+- boa composição visual;
+- excelente legibilidade;
+- gráficos bem apresentados;
+- visualização clara da evolução;
+- componentes consistentes;
+- microinterações discretas;
+- transições suaves quando fizer sentido;
+- feedback visual adequado;
+- estados vazios bem desenhados.
+
+A interface deve parecer um produto acabado, e não apenas uma aplicação funcional.
+
+==================================================
+RESPONSIVIDADE
+==================================================
+
+A aplicação precisa funcionar muito bem em:
+
+- desktop;
+- notebook;
+- tablet;
+- celular.
+
+Não trate o mobile apenas como uma versão reduzida do desktop.
+
+Adapte:
+
+- navegação;
+- espaçamento;
+- tamanho dos componentes;
+- gráficos;
+- tabelas;
+- formulários;
+- hierarquia das informações;
+- interações.
+
+Evite:
+
+- overflow horizontal desnecessário;
+- textos cortados;
+- botões pequenos demais;
+- gráficos ilegíveis;
+- elementos sobrepostos;
+- componentes quebrados em telas pequenas.
+
+==================================================
+ACESSIBILIDADE
+==================================================
+
+Implemente uma base adequada de acessibilidade.
+
+Verifique:
+
+- navegação por teclado;
+- foco visível;
+- contraste;
+- labels adequados;
+- botões e controles semanticamente corretos;
+- mensagens de erro compreensíveis;
+- estados de loading acessíveis;
+- áreas clicáveis adequadas em dispositivos móveis.
+
+==================================================
+ESTADOS DA APLICAÇÃO
+==================================================
+
+Implemente estados visuais adequados para:
+
+- carregamento;
+- carregamento inicial;
+- ausência de dados;
+- erro;
+- sucesso;
+- operação em andamento;
+- exclusão;
+- salvamento;
+- autenticação;
+- sessão expirada;
+- problemas de conexão.
+
+Não deixe a interface simplesmente vazia enquanto alguma operação estiver acontecendo.
+
+Os estados vazios devem ser desenhados de forma coerente com a identidade visual da aplicação.
+
+==================================================
+DADOS
+==================================================
+
+Não invente dados, métricas, registros ou resultados para preencher a interface.
+
+Durante o desenvolvimento, dados mockados podem ser utilizados temporariamente quando forem necessários para construir ou testar componentes.
+
+Porém:
+
+- dados fictícios devem ser removidos da versão final;
+- a aplicação final deve trabalhar com os dados reais do Supabase;
+- não deixe registros de demonstração aparecendo para o usuário final.
+
+==================================================
+BACKUP / EXPORTAÇÃO
+==================================================
+
+Implemente uma forma simples e segura de exportar os dados do usuário em formato JSON.
+
+O backup deve permitir que eu mantenha uma cópia independente dos dados armazenados no Supabase.
+
+Se a arquitetura permitir de forma simples e segura, implemente também a importação desse JSON para restauração dos dados.
+
+Não adicione complexidade desnecessária apenas para criar um sistema de backup sofisticado.
+
+==================================================
+TRATAMENTO DE ERROS
+==================================================
+
+Todos os principais fluxos devem possuir tratamento adequado de erro.
+
+Não deixe erros silenciosos.
+
+Quando uma operação falhar:
+
+- preserve o estado da aplicação quando possível;
+- informe o usuário de forma clara;
+- evite mensagens técnicas desnecessárias;
+- registre informações úteis para diagnóstico quando apropriado;
+- permita tentar novamente quando fizer sentido.
+
+==================================================
+ENTREGA
+==================================================
+
+Ao finalizar a implementação, entregue:
+
+1. código completo da aplicação;
+2. script SQL completo do Supabase;
+3. criação das tabelas;
+4. índices;
+5. constraints;
+6. políticas RLS;
+7. `.env.example` contendo todas as variáveis públicas necessárias;
+8. nenhuma chave ou secret real no `.env.example`;
+9. instruções passo a passo para configurar o projeto no Supabase;
+10. instruções para configurar a autenticação por Magic Link;
+11. instruções para configurar as URLs de redirecionamento;
+12. instruções para configurar variáveis de ambiente;
+13. instruções para criar um repositório GitHub;
+14. instruções para conectar o projeto ao GitHub;
+15. instruções para instalação local;
+16. instruções para executar localmente;
+17. instruções de build;
+18. instruções de publicação;
+19. lista clara de todas as etapas manuais que ainda precisam ser executadas por mim.
+
+As instruções devem ser práticas e passo a passo.
+
+Não presuma que alguma configuração externa já foi feita.
+
+==================================================
+GITHUB
+==================================================
+
+Prepare o projeto para versionamento com Git.
+
+Verifique se existe um `.gitignore` adequado.
+
+Garanta que não sejam enviados ao GitHub:
+
+- `.env`;
+- secrets;
+- chaves privadas;
+- credenciais;
+- arquivos temporários;
+- dependências;
+- builds desnecessários.
+
+Forneça os comandos necessários para:
+
+- inicializar o Git;
+- criar o primeiro commit;
+- conectar ao repositório GitHub;
+- fazer push;
+- atualizar o projeto posteriormente.
+
+==================================================
+PUBLICAÇÃO
+==================================================
+
+Prepare o projeto para publicação em uma plataforma adequada.
+
+Se houver mais de uma opção razoável, recomende a melhor para este projeto e explique brevemente o motivo.
+
+Forneça:
+
+- configuração necessária;
+- variáveis de ambiente;
+- build command;
+- output directory, quando aplicável;
+- configuração de domínio, caso necessário;
+- configuração das URLs de autenticação no Supabase;
+- qualquer outra configuração necessária.
+
+==================================================
+VALIDAÇÃO FINAL
+==================================================
+
+Antes de considerar o projeto concluído, execute e valide a aplicação.
+
+Verifique obrigatoriamente:
+
+### Funcionalidade
+
+- autenticação por Magic Link;
+- login;
+- logout;
+- persistência;
+- sincronização;
+- criação de registros;
+- edição de registros;
+- exclusão de registros;
+- cálculos;
+- histórico;
+- gráficos;
+- exportação JSON;
+- importação JSON, caso implementada.
+
+### Segurança
+
+- RLS;
+- isolamento dos dados;
+- autenticação;
+- proteção das rotas;
+- ausência de secrets no frontend;
+- ausência de secrets no Git.
+
+### Interface
+
+- desktop;
+- notebook;
+- tablet;
+- celular;
+- diferentes larguras de tela;
+- navegação;
+- formulários;
+- gráficos;
+- estados vazios;
+- loading;
+- erros;
+- mensagens de sucesso.
+
+### Qualidade
+
+- console sem erros relevantes;
+- ausência de warnings importantes;
+- ausência de dados fictícios na versão final;
+- ausência de funcionalidades quebradas;
+- ausência de elementos sobrepostos;
+- ausência de overflow horizontal inesperado;
+- boa experiência em telas pequenas.
+
+Não considere o projeto concluído simplesmente porque o código compila.
+
+O objetivo é entregar uma aplicação:
+
+- funcional;
+- segura;
+- responsiva;
+- visualmente refinada;
+- consistente com a referência;
+- com boa experiência de uso;
+- com dados persistidos corretamente;
+- pronta para publicação.
+
+==================================================
+RELATÓRIO FINAL
+==================================================
+
+Ao terminar, apresente um resumo objetivo contendo:
+
+1. o que foi implementado;
+2. quais funcionalidades foram preservadas;
+3. quais alterações importantes foram realizadas;
+4. como ficou a arquitetura;
+5. como ficou a integração com Supabase;
+6. como funciona a autenticação;
+7. quais testes foram realizados;
+8. quais problemas foram encontrados e corrigidos;
+9. quais decisões de UX/UI foram tomadas;
+10. quais etapas manuais ainda preciso executar;
+11. como executar o projeto localmente;
+12. como publicar a aplicação.
+
+Não omita etapas manuais necessárias para colocar a aplicação efetivamente em produção.

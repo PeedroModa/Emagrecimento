@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<!-- Supabase JS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Model Analyzer - BI · Power BI Model Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700;800&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* ─────────────────────────────────────────────
+   DEEP EMBER — Paleta & Tokens
+───────────────────────────────────────────── */
+:root{
+  /* Backgrounds */
+  --bg:#0E0D0B;
+  --card:#161410;
+  --card2:#1C1A16;
+  --hover:#211E18;
+
+  /* Borders */
+  --bdr:rgba(255,200,100,.05);
+  --bdr2:rgba(255,200,100,.12);
+
+  /* Accent — Âmbar/Laranja dominante */
+  --amber:#F59E0B;
+  --amber-bright:#FCD34D;
+  --amber-deep:#B45309;
+  --orange:#EA580C;
+  --orange-bright:#FB923C;
+
+  /* Acento frio */
+  --neon:#A8FF5A;
+  --neon-dim:rgba(168,255,90,.18);
+
+  /* Semântico (mantido para compatibilidade) */
+  --blue:#F59E0B;
+  --cyan:#A8FF5A;
+  --green:#86EFAC;
+  --purple:#FB923C;
+  --red:#F87171;
+  --orange-sem:#FB923C;
+
+  /* Severidade */
+  --alto:#F87171;
+  --medio:#FCD34D;
+  --baixo:#86EFAC;
+
+  /* Texto */
+  --t1:#F5F0E8;
+  --t2:#A89880;
+  --t3:#6B5E4A;
+
+  /* Tipografia */
+  --font-display:'Bebas Neue', sans-serif;
+  --font-condensed:'Barlow Condensed', sans-serif;
+  --font-body:'Outfit', sans-serif;
+  --font-mono:'JetBrains Mono', 'Consolas', monospace;
+  --mono:'JetBrains Mono', monospace;
+
+  /* Raios */
+  --r:14px;
+  --r2:8px;
+
+  /* Sombras */
+  --shadow-card:0 4px 24px rgba(0,0,0,.55);
+  --shadow-glow:0 0 24px rgba(245,158,11,.2);
+}
+
+*, *::before, *::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--t1);
+  font-family:var(--font-body);
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ── METEOR CANVAS ─────────────────────────────── */
+#meteor-canvas{
+  position:fixed;inset:0;width:100%;height:100%;
+  pointer-events:none;z-index:0;
+}
+
+/* ── BACKGROUND ORBS (radiais âmbar) ─────────────── */
+body::before{
+  content:'';
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 700px 500px at 10% 15%, rgba(245,158,11,.06) 0%, transparent 65%),
+    radial-gradient(ellipse 500px 400px at 90% 85%, rgba(234,88,12,.05) 0%, transparent 65%);
+}
+
+/* ── M QUERY OPTIMIZER ─────────────────────────── */
+.mq-tab{background:transparent;border:1px solid var(--bdr2);color:var(--t3);font-family:var(--font-condensed);font-size:.74rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;border-radius:999px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.mq-tab:hover{border-color:var(--amber);color:var(--amber)}
+.mq-tab.active{background:rgba(245,158,11,.1);border-color:var(--amber);color:var(--amber)}
+.mq-panel{display:none}
+.mq-panel.active{display:block}
+.vpa-tab{background:transparent;border:1px solid var(--bdr2);color:var(--t3);font-family:var(--font-condensed);font-size:.74rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;border-radius:999px;cursor:pointer;transition:all .2s;white-space:nowrap;display:inline-flex;align-items:center;gap:.4rem}
+.vpa-tab:hover{border-color:var(--amber);color:var(--amber)}
+.vpa-tab.active{background:rgba(245,158,11,.1);border-color:var(--amber);color:var(--amber)}
+.vpa-tab-cnt{background:rgba(255,255,255,.06);color:var(--t2);font-family:var(--font-mono);font-size:.65rem;padding:.05rem .4rem;border-radius:100px;font-weight:600;letter-spacing:0}
+.vpa-tab.active .vpa-tab-cnt{background:rgba(245,158,11,.2);color:var(--amber)}
+.vpa-panel{display:none}
+.vpa-panel.active{display:block}
+.mq-label{font-size:.72rem;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;font-weight:700;margin-bottom:.5rem;font-family:var(--font-condensed)}
+.mq-textarea{width:100%;height:320px;background:rgba(0,0,0,.35);border:1px solid var(--bdr2);border-radius:10px;padding:.9rem 1rem;color:var(--t1);font-family:var(--font-mono);font-size:.78rem;resize:vertical;outline:none;line-height:1.6;transition:border-color .2s}
+.mq-textarea:focus{border-color:var(--amber)}
+.mq-result-box{min-height:320px;background:rgba(0,0,0,.25);border:1px solid var(--bdr);border-radius:10px;padding:.9rem 1rem;font-family:var(--font-body);font-size:.82rem;color:var(--t2);line-height:1.6;display:flex;flex-direction:column}
+.mq-btn-primary{display:inline-flex;align-items:center;gap:.4rem;background:linear-gradient(135deg,var(--amber),var(--orange));color:#0E0D0B;font-family:var(--font-condensed);font-size:.85rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:.55rem 1.3rem;border-radius:999px;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(245,158,11,.3);transition:all .2s}
+.mq-btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 26px rgba(245,158,11,.45)}
+.mq-btn-secondary{background:transparent;border:1px solid var(--bdr2);color:var(--t2);font-family:var(--font-condensed);font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:.5rem 1.1rem;border-radius:999px;cursor:pointer;transition:all .2s}
+.mq-btn-secondary:hover{border-color:var(--amber);color:var(--amber)}
+.mq-code-block{background:rgba(0,0,0,.4);border:1px solid var(--bdr);border-radius:10px;padding:1rem 1.2rem;font-family:var(--font-mono);font-size:.76rem;color:var(--t1);white-space:pre-wrap;word-break:break-all;line-height:1.65;max-height:400px;overflow-y:auto}
+/* Severity badges (used by M optimizer findings table) */
+.sev-badge{display:inline-flex;align-items:center;gap:.3rem;font-family:var(--font-condensed);font-size:.65rem;font-weight:700;padding:.13rem .5rem;border-radius:100px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+.sev-badge.Alto{background:rgba(248,113,113,.13);color:var(--alto)}
+.sev-badge.Médio{background:rgba(252,211,77,.13);color:var(--medio)}
+.sev-badge.Baixo{background:rgba(134,239,172,.13);color:var(--baixo)}
+.sev-badge.ok{background:rgba(168,255,90,.1);color:var(--neon)}
+.sev-dot{width:6px;height:6px;border-radius:50%}
+.sev-dot.Alto{background:var(--alto)}
+.sev-dot.Médio{background:var(--medio)}
+.sev-dot.Baixo{background:var(--baixo)}
+.sev-dot.ok{background:var(--neon)}
+
+/* ── LOGIN ─────────────────────────────────────── */
+#login-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;position:relative;z-index:1}
+.login-box{width:100%;max-width:420px;background:var(--card);border:1px solid var(--bdr2);border-radius:20px;padding:2.5rem 2rem;display:flex;flex-direction:column;align-items:center;gap:1.5rem;box-shadow:0 24px 64px rgba(0,0,0,.6);position:relative}
+.login-box::before{content:'';position:absolute;top:0;left:48px;right:48px;height:1px;background:linear-gradient(90deg,transparent,var(--amber),transparent);opacity:.5}
+.login-logo{display:flex;flex-direction:column;align-items:center;gap:.6rem}
+.login-logo .logo-icon{width:64px;height:64px;font-size:1.8rem;background:linear-gradient(135deg,var(--amber),var(--orange));border-radius:18px;box-shadow:0 0 32px rgba(245,158,11,.35)}
+.login-title{font-family:var(--font-display);font-size:2rem;letter-spacing:.08em;color:var(--t1);text-align:center;text-transform:uppercase}
+.login-sub{font-family:var(--font-condensed);font-size:.85rem;font-weight:400;color:var(--t3);text-align:center;line-height:1.5;max-width:280px;letter-spacing:.04em}
+.login-field{width:100%;display:flex;flex-direction:column;gap:.5rem}
+.login-label{font-family:var(--font-condensed);font-size:.8rem;font-weight:700;color:var(--t2);letter-spacing:.12em;text-transform:uppercase}
+.login-input{width:100%;background:var(--bg);border:1px solid var(--bdr2);border-radius:10px;padding:.75rem 1rem;color:var(--t1);font-family:var(--font-body);font-size:.9rem;outline:none;transition:border-color .2s}
+.login-input:focus{border-color:var(--amber);box-shadow:0 0 0 2px rgba(245,158,11,.12)}
+.login-input::placeholder{color:var(--t3)}
+.login-btn{width:100%;background:linear-gradient(135deg,var(--amber),var(--orange));color:#0E0D0B;font-family:var(--font-condensed);font-size:1rem;font-weight:700;letter-spacing:.1em;padding:.8rem 1.5rem;border-radius:10px;border:none;cursor:pointer;transition:all .2s;box-shadow:0 4px 24px rgba(245,158,11,.3);text-transform:uppercase}
+.login-btn:hover{transform:translateY(-1px);box-shadow:0 6px 30px rgba(245,158,11,.45)}
+.login-footer{font-family:var(--font-condensed);font-size:.75rem;color:var(--t3);text-align:center;line-height:1.6;letter-spacing:.03em}
+#login-err{width:100%;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:#fca5a5;padding:.75rem 1rem;border-radius:10px;font-size:.82rem;display:none;text-align:center}
+
+/* ── UPLOAD ─────────────────────────────────────── */
+#upload-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;position:relative;z-index:1}
+.upload-logo{display:flex;flex-direction:column;align-items:center;gap:.75rem;margin-bottom:3rem}
+.logo-icon{width:72px;height:72px;background:linear-gradient(135deg,var(--amber),var(--orange));border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:2rem;box-shadow:0 0 40px rgba(245,158,11,.3)}
+.logo-title{font-family:var(--font-display);font-size:2.8rem;letter-spacing:.1em;color:var(--t1);text-transform:uppercase}
+.logo-sub{font-family:var(--font-condensed);color:var(--t2);font-size:.9rem;letter-spacing:.2em;text-transform:uppercase;font-weight:400}
+.drop-zone{width:100%;max-width:520px;border:2px dashed var(--bdr2);border-radius:20px;padding:3.5rem 2rem;text-align:center;cursor:pointer;transition:all .3s;background:var(--card);position:relative;overflow:hidden}
+.drop-zone::before{content:'';position:absolute;top:0;left:25%;right:25%;height:1px;background:linear-gradient(90deg,transparent,var(--amber),transparent);opacity:.5}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--amber);background:rgba(245,158,11,.04);box-shadow:0 0 40px rgba(245,158,11,.12);transform:translateY(-2px)}
+.drop-icon{font-size:3rem;margin-bottom:.75rem;display:block;animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.drop-title{font-family:var(--font-condensed);font-size:1.4rem;font-weight:700;letter-spacing:.06em;margin-bottom:.4rem;color:var(--t1)}
+.drop-sub{font-family:var(--font-body);font-size:.85rem;color:var(--t2);margin-bottom:1.25rem}
+.drop-badge{display:inline-block;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:var(--amber);font-family:var(--font-mono);font-size:.78rem;font-weight:600;padding:.25rem .8rem;border-radius:100px}
+#file-input{display:none}
+.btn-primary{display:inline-flex;align-items:center;gap:.5rem;background:linear-gradient(135deg,var(--amber),var(--orange));color:#0E0D0B;font-family:var(--font-condensed);font-size:.95rem;font-weight:700;letter-spacing:.08em;padding:.7rem 1.75rem;border-radius:10px;border:none;cursor:pointer;transition:all .2s;box-shadow:0 4px 24px rgba(245,158,11,.3);margin-top:1.25rem;text-transform:uppercase}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 30px rgba(245,158,11,.4)}
+.error-msg{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:#fca5a5;padding:.9rem 1.25rem;border-radius:10px;margin:1rem 0;font-size:.85rem;display:none;max-width:520px;width:100%}
+
+/* ── LOADING ─────────────────────────────────────── */
+#loading-screen{display:none;min-height:100vh;align-items:center;justify-content:center;flex-direction:column;gap:2rem;position:relative;z-index:1}
+.loader-ring{width:72px;height:72px;border:3px solid rgba(245,158,11,.15);border-top-color:var(--amber);border-radius:50%;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-step{opacity:0;transition:opacity .3s;padding:.15rem 0;font-family:var(--font-mono);font-size:.78rem;color:var(--t3);text-align:center}
+.loader-step.active{opacity:1;color:var(--neon)}.loader-step.done{opacity:.45}
+
+/* ── APP ───────────────────────────────────────────── */
+#app{display:none;min-height:100vh;position:relative;z-index:1}
+
+/* ── SIDEBAR ───────────────────────────────────────── */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:64px;background:var(--card);border-right:1px solid var(--bdr);display:flex;flex-direction:column;align-items:center;padding:1rem 0;gap:.4rem;z-index:100;transition:width .25s;overflow:hidden}
+.sidebar:hover{width:220px}
+.sidebar-logo{width:40px;height:40px;background:linear-gradient(135deg,var(--amber),var(--orange));border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;margin-bottom:.75rem;box-shadow:0 0 20px rgba(245,158,11,.3)}
+.nav-item{display:flex;align-items:center;gap:.75rem;width:100%;padding:.65rem .875rem;border-radius:10px;cursor:pointer;transition:all .15s;white-space:nowrap;border:none;background:transparent;color:var(--t2);font-family:var(--font-condensed);font-size:.9rem;font-weight:600;letter-spacing:.04em}
+.nav-item:hover{background:var(--hover);color:var(--t1)}.nav-item.active{background:rgba(245,158,11,.1);color:var(--amber)}
+.nav-icon{font-size:1.2rem;flex-shrink:0;width:24px;text-align:center}
+.nav-label{opacity:0;transition:opacity .2s;pointer-events:none;flex-shrink:0;text-transform:uppercase;letter-spacing:.06em}
+.sidebar:hover .nav-label{opacity:1}
+.nav-sep{width:80%;height:1px;background:var(--bdr);margin:.2rem 0}
+.btn-reset-nav{display:flex;align-items:center;gap:.75rem;width:100%;padding:.65rem .875rem;border-radius:10px;cursor:pointer;transition:all .15s;white-space:nowrap;border:none;background:transparent;color:var(--t3);font-family:var(--font-condensed);font-size:.85rem;font-weight:500;margin-top:auto}
+.btn-reset-nav:hover{color:var(--red);background:rgba(248,113,113,.08)}
+
+/* ── MAIN ───────────────────────────────────────────── */
+.main{margin-left:64px;padding:2rem;max-width:1600px}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.page{display:none}.page.active{display:block;animation:fi .35s ease}
+
+/* ── TOPBAR ───────────────────────────────────────────── */
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;padding-bottom:1.25rem;border-bottom:1px solid var(--bdr);flex-wrap:wrap;gap:1rem}
+.topbar h1{font-family:var(--font-display);font-size:1.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--t1)}
+.topbar p{font-family:var(--font-mono);font-size:.78rem;color:var(--t2);margin-top:.15rem}
+.topbar-r{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.badge{display:flex;align-items:center;gap:.4rem;background:var(--card);border:1px solid var(--bdr2);border-radius:8px;padding:.35rem .8rem;font-family:var(--font-condensed);font-size:.78rem;color:var(--t2)}
+.badge span{color:var(--neon);font-family:var(--font-mono);font-weight:600}
+
+/* ── SECTION TITLE ─────────────────────────────────── */
+.stitle{font-family:var(--font-condensed);font-size:.75rem;color:var(--t3);text-transform:uppercase;letter-spacing:.15em;font-weight:700;margin-bottom:.85rem;display:flex;align-items:center;gap:.5rem}
+.stitle::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--bdr2),transparent)}
+
+/* ── STAT CARDS ─────────────────────────────────────── */
+.charts-row{display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:.85rem;margin-bottom:2rem}
+.chart-box{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:1rem;display:flex;flex-direction:column;gap:.6rem}
+.chart-box-wide{grid-column:span 1}
+.chart-label{font-family:var(--font-condensed);font-size:.72rem;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.1em}
+.chart-box canvas{height:180px!important;width:100%!important}
+@media(max-width:900px){.charts-row{grid-template-columns:1fr 1fr}.chart-box-wide{grid-column:span 2}}
+@media(max-width:600px){.charts-row{grid-template-columns:1fr}.chart-box-wide{grid-column:span 1}}
+.grid-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:.85rem;margin-bottom:2rem}
+.stat-card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:1.1rem 1.3rem;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.4)}
+.stat-card.alto{border-top:2px solid var(--alto)}.stat-card.medio{border-top:2px solid var(--medio)}
+.stat-card.baixo{border-top:2px solid var(--baixo)}.stat-card.ok{border-top:2px solid var(--amber)}
+.stat-card.total{border-top:2px solid var(--orange)}.stat-card.inf{border-top:2px solid var(--neon)}
+.slabel{font-family:var(--font-condensed);font-size:.7rem;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:.4rem}
+.sval{font-family:var(--font-condensed);font-size:2.4rem;font-weight:300;line-height:1;margin-bottom:.2rem;letter-spacing:-.01em}
+.sval.alto{color:var(--alto)}.sval.medio{color:var(--medio)}.sval.baixo{color:var(--baixo)}
+.sval.ok{color:var(--amber)}.sval.total{color:var(--orange)}.sval.inf{color:var(--neon)}
+.ssub{font-family:var(--font-condensed);font-size:.7rem;color:var(--t3);letter-spacing:.04em}
+
+/* ── MODEL INFO ─────────────────────────────────────── */
+.grid-model{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:.85rem;margin-bottom:2rem}
+.info-card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:1rem 1.2rem;display:flex;align-items:center;gap:.9rem;transition:all .2s}
+.info-card:hover{border-color:rgba(245,158,11,.25);transform:translateY(-1px)}
+.ii{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.ii.b{background:rgba(245,158,11,.12)}.ii.c{background:rgba(168,255,90,.1)}.ii.g{background:rgba(134,239,172,.1)}
+.ii.o{background:rgba(234,88,12,.12)}.ii.p{background:rgba(251,146,60,.1)}.ii.r{background:rgba(248,113,113,.1)}
+.ilabel{font-family:var(--font-condensed);font-size:.68rem;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.ival{font-family:var(--font-mono);font-size:.88rem;font-weight:600;color:var(--t1);margin-top:.1rem}
+.ival small{font-size:.7rem;color:var(--t2);font-family:var(--font-body)}
+
+/* ── CHARTS ─────────────────────────────────────────── */
+.grid-charts{display:grid;grid-template-columns:1fr 1fr 2fr;gap:.85rem;margin-bottom:2rem}
+@media(max-width:1100px){.grid-charts{grid-template-columns:1fr 1fr}.grid-charts>.cc:last-child{grid-column:1/-1}}
+.cc{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:1.25rem}
+.cc-title{font-family:var(--font-condensed);font-size:.95rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.2rem;color:var(--t1)}
+.cc-sub{font-family:var(--font-condensed);font-size:.72rem;color:var(--t3);margin-bottom:1rem;letter-spacing:.04em}
+.cc-wrap{position:relative;height:200px}
+
+/* ── KB GRID ─────────────────────────────────────────── */
+.kb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:.7rem;margin-bottom:2rem}
+.kb-card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:.9rem 1.1rem;display:flex;align-items:center;gap:.9rem;transition:all .2s;cursor:pointer}
+.kb-card:hover{border-color:rgba(245,158,11,.25);transform:translateY(-1px)}
+.kb-cnt{font-family:var(--font-condensed);font-size:2rem;font-weight:300;min-width:46px;text-align:right;flex-shrink:0}
+.kb-code{font-family:var(--font-mono);font-size:.68rem;color:var(--neon);font-weight:600;margin-bottom:.15rem}
+.kb-ttl{font-family:var(--font-body);font-size:.78rem;color:var(--t1);font-weight:500;line-height:1.35}
+.kb-bar{width:3px;align-self:stretch;border-radius:100px;flex-shrink:0}
+.kb-bar.Alto{background:var(--alto)}.kb-bar.Médio{background:var(--medio)}.kb-bar.Baixo{background:var(--baixo)}
+
+/* ── PROBLEMS PAGE ─────────────────────────────────── */
+.prob-toolbar{display:flex;align-items:center;gap:.6rem;margin-bottom:1.1rem;flex-wrap:wrap}
+.fbt{font-family:var(--font-condensed);font-size:.78rem;font-weight:700;letter-spacing:.06em;padding:.28rem .85rem;border-radius:100px;border:1px solid var(--bdr2);background:transparent;color:var(--t2);cursor:pointer;transition:all .15s;text-transform:uppercase}
+.fbt:hover{border-color:var(--amber);color:var(--amber)}.fbt.active{background:var(--amber);border-color:var(--amber);color:#0E0D0B}
+.fbt.alto.active{background:var(--alto);border-color:var(--alto);color:#0E0D0B}.fbt.medio.active{background:var(--medio);border-color:var(--medio);color:#0E0D0B}
+.fbt.baixo.active{background:var(--baixo);border-color:var(--baixo);color:#0E0D0B}
+.srch{background:var(--card);border:1px solid var(--bdr2);color:var(--t1);font-family:var(--font-body);font-size:.82rem;padding:.38rem .9rem;border-radius:8px;outline:none;width:240px;transition:border-color .2s;margin-left:auto}
+.srch::placeholder{color:var(--t3)}.srch:focus{border-color:var(--amber)}
+.prob-table-wrap{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+thead tr{border-bottom:1px solid var(--bdr)}
+th{padding:.62rem .95rem;text-align:left;font-family:var(--font-condensed);font-size:.7rem;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--amber)}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.025);transition:background .15s;cursor:pointer}
+tbody tr:hover{background:var(--hover)}
+tbody tr.ignored{opacity:.3}
+td{padding:.72rem .95rem;vertical-align:middle}
+.td-id{font-family:var(--font-mono);font-size:.7rem;color:var(--t3);white-space:nowrap}
+.td-prob-code{display:block;font-size:.68rem;color:var(--neon);font-family:var(--font-mono);font-weight:600;margin-bottom:.12rem}
+.td-prob-label{color:var(--t1);font-weight:500;font-size:.82rem;line-height:1.35}
+.td-obj-name{color:var(--t1);font-weight:500;font-size:.78rem;font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
+.td-obj-tbl{color:var(--t3);font-size:.68rem}
+.sev-badge{display:inline-flex;align-items:center;gap:.27rem;font-family:var(--font-condensed);font-size:.72rem;font-weight:700;padding:.17rem .52rem;border-radius:100px;white-space:nowrap;letter-spacing:.05em}
+.sev-badge.Alto{background:rgba(248,113,113,.15);color:var(--alto)}
+.sev-badge.Médio{background:rgba(252,211,77,.12);color:var(--medio)}
+.sev-badge.Baixo{background:rgba(134,239,172,.12);color:var(--baixo)}
+.sev-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.sev-dot.Alto{background:var(--alto);box-shadow:0 0 5px var(--alto)}
+.sev-dot.Médio{background:var(--medio);box-shadow:0 0 5px var(--medio)}
+.sev-dot.Baixo{background:var(--baixo);box-shadow:0 0 5px var(--baixo)}
+.row-acts{display:flex;gap:.35rem;align-items:center}
+.row-btn{background:transparent;border:1px solid var(--bdr);color:var(--t3);font-family:var(--font-condensed);font-size:.7rem;letter-spacing:.04em;padding:.16rem .48rem;border-radius:6px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.row-btn.fix:hover{border-color:var(--baixo);color:var(--baixo);background:rgba(134,239,172,.08)}
+.row-btn.fix.done{background:rgba(134,239,172,.12);border-color:var(--baixo);color:var(--baixo)}
+.row-btn.ign:hover{border-color:var(--medio);color:var(--medio)}
+.row-btn.det{border-color:rgba(245,158,11,.3);color:var(--amber)}
+.row-btn.det:hover{background:rgba(245,158,11,.1)}
+.imp-cell{display:flex;flex-direction:column;gap:.32rem;min-width:68px}
+.imp-row{display:flex;align-items:center;gap:.32rem}
+.imp-fill{height:4px;border-radius:100px;min-width:2px;transition:width .3s}
+
+/* ── PAGINATION ─────────────────────────────────────── */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-top:1px solid var(--bdr);font-family:var(--font-condensed);font-size:.78rem;color:var(--t3)}
+.pg-btns{display:flex;gap:.3rem;flex-wrap:wrap}
+.pg-btn{background:transparent;border:1px solid var(--bdr);color:var(--t3);font-family:var(--font-condensed);font-size:.75rem;padding:.18rem .55rem;border-radius:6px;cursor:pointer;transition:all .15s;min-width:28px;text-align:center}
+.pg-btn:hover{border-color:var(--amber);color:var(--amber)}.pg-btn.active{background:var(--amber);border-color:var(--amber);color:#0E0D0B;font-weight:700}
+.tag-cnt{display:inline-block;min-width:16px;height:16px;border-radius:100px;font-size:.65rem;font-weight:700;text-align:center;line-height:16px;margin-left:.3rem;background:rgba(255,255,255,.08);padding:0 4px}
+
+/* ── SCORE RING ─────────────────────────────────────── */
+.score-sec{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:1.4rem;margin-bottom:2rem;position:relative;overflow:hidden}
+.score-sec::before{content:'';position:absolute;top:0;left:48px;right:48px;height:1px;background:linear-gradient(90deg,transparent,var(--amber),transparent);opacity:.4}
+.rings-row{display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap}
+.ring-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.ring-main{width:120px;height:120px}
+.ring-small{width:80px;height:80px}
+.ring-svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.ring-bg{fill:none;stroke:rgba(255,255,255,.06);stroke-width:8}
+.ring-fill{fill:none;stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset 1.2s cubic-bezier(.34,1.56,.64,1)}
+.ring-main .ring-bg{stroke-width:9}.ring-main .ring-fill{stroke-width:9}
+.ring-inner{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.ring-val{font-family:var(--font-display);font-size:1.85rem;line-height:1;color:var(--amber);letter-spacing:.02em}
+.ring-val-sm{font-family:var(--font-condensed);font-size:1.1rem;font-weight:700;line-height:1;letter-spacing:.02em}
+.ring-lbl{font-family:var(--font-condensed);font-size:.6rem;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-top:.05rem}
+.ring-sub{font-family:var(--font-condensed);font-size:.62rem;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-top:.1rem}
+.ring-sub-sm{font-family:var(--font-condensed);font-size:.56rem;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-top:.05rem}
+.grade-badge{display:inline-flex;align-items:center;justify-content:center;border-radius:8px;font-weight:900;font-family:var(--mono);transition:all .5s cubic-bezier(.34,1.56,.64,1);box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.grade-badge.A{background:linear-gradient(135deg,rgba(134,239,172,.25),rgba(134,239,172,.1));border:1px solid rgba(134,239,172,.5);color:#86EFAC}
+.grade-badge.B{background:linear-gradient(135deg,rgba(168,255,90,.25),rgba(168,255,90,.1));border:1px solid rgba(168,255,90,.5);color:#A8FF5A}
+.grade-badge.C{background:linear-gradient(135deg,rgba(252,211,77,.25),rgba(252,211,77,.1));border:1px solid rgba(252,211,77,.5);color:#FCD34D}
+.grade-badge.D{background:linear-gradient(135deg,rgba(248,113,113,.25),rgba(248,113,113,.1));border:1px solid rgba(248,113,113,.5);color:#F87171}
+.grade-badge.pop{animation:grade-pop .6s cubic-bezier(.34,1.56,.64,1)}
+@keyframes grade-pop{0%{transform:scale(.5);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+.rings-right{flex:1;min-width:220px;display:flex;flex-direction:column;justify-content:center}
+.small-rings{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap}
+.rings-legend{display:flex;flex-direction:column;gap:.28rem;font-family:var(--font-condensed);font-size:.7rem;color:var(--t2);letter-spacing:.03em}
+.rl-item{display:flex;align-items:center;gap:.45rem}
+.rl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.score-bar-o{height:5px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden}
+.score-bar-f{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--amber-deep),var(--amber),var(--neon));transition:width 1s ease}
+
+/* ── CHECKLIST ─────────────────────────────────────── */
+.ck-grid{display:flex;flex-direction:column;gap:.55rem}
+.ck-item{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r2);padding:.75rem 1rem;display:flex;align-items:flex-start;gap:.85rem;cursor:pointer;transition:all .15s}
+.ck-item:hover{border-color:rgba(245,158,11,.2);background:var(--hover)}
+.ck-item.checked{border-color:rgba(134,239,172,.2);background:rgba(134,239,172,.04)}
+.ck-cb{width:18px;height:18px;border:2px solid var(--bdr2);border-radius:5px;flex-shrink:0;margin-top:.08rem;display:flex;align-items:center;justify-content:center;font-size:.8rem;transition:all .15s}
+.ck-item.checked .ck-cb{background:var(--baixo);border-color:var(--baixo);color:#0E0D0B}
+.ck-title{font-family:var(--font-condensed);font-size:.9rem;font-weight:700;color:var(--t1);margin-bottom:.15rem;letter-spacing:.03em;text-transform:uppercase}
+.ck-item.checked .ck-title{color:var(--t2)}
+.ck-desc{font-family:var(--font-body);font-size:.78rem;color:var(--t2);line-height:1.5}
+.ck-status{font-family:var(--font-condensed);font-size:.68rem;font-weight:700;letter-spacing:.08em;padding:.1rem .45rem;border-radius:100px;text-transform:uppercase}
+.ck-status.ok{background:rgba(134,239,172,.12);color:var(--baixo)}.ck-status.warn{background:rgba(252,211,77,.1);color:var(--medio)}
+.ck-status.err{background:rgba(248,113,113,.12);color:var(--alto)}.ck-status.info{background:rgba(168,255,90,.1);color:var(--neon)}
+
+/* ── PRIORITY PAGE ─────────────────────────────────── */
+.prio-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.prio-header-info h3{font-family:var(--font-condensed);font-size:1.2rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.35rem;color:var(--t1)}
+.prio-header-info p{font-family:var(--font-body);font-size:.82rem;color:var(--t2);max-width:560px;line-height:1.6}
+.prio-header-info strong{color:var(--amber)}
+.prio-gain-badge{background:var(--card);border:1px solid rgba(245,158,11,.3);border-radius:var(--r);padding:.75rem 1.2rem;text-align:center;flex-shrink:0;box-shadow:var(--shadow-glow)}
+.prio-gain-val{font-family:var(--font-display);font-size:2.5rem;letter-spacing:.06em;color:var(--amber);line-height:1}
+.prio-gain-lbl{font-family:var(--font-condensed);font-size:.7rem;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem}
+.prio-section{margin-bottom:1.75rem}
+.prio-section-title{font-family:var(--font-condensed);font-size:.78rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--t3);margin-bottom:.65rem;display:flex;align-items:center;gap:.5rem}
+.prio-section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--bdr2),transparent)}
+.prio-card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:.9rem 1.1rem;margin-bottom:.55rem;display:flex;align-items:center;gap:1rem;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.prio-card:hover{border-color:rgba(245,158,11,.2);transform:translateX(3px)}
+.prio-card.done{opacity:.45;filter:grayscale(.6)}
+.prio-rank{font-family:var(--font-mono);font-size:1.4rem;font-weight:800;min-width:32px;text-align:center;flex-shrink:0;line-height:1;color:var(--t3)}
+.prio-rank.r1{color:var(--orange)}.prio-rank.r2{color:var(--t2)}.prio-rank.r3{color:#cd7c32}.prio-rank.rn{color:var(--t3);font-size:1rem}
+.prio-body{flex:1;min-width:0}
+.prio-info{flex:1;min-width:0}
+.prio-title{font-family:var(--font-condensed);font-size:.92rem;font-weight:700;color:var(--t1);margin-bottom:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.03em;text-transform:uppercase}
+.prio-meta{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;font-family:var(--font-mono);font-size:.68rem;color:var(--t3)}
+.prio-tag{font-family:var(--font-condensed);font-size:.65rem;font-weight:700;padding:.12rem .48rem;border-radius:100px;white-space:nowrap;letter-spacing:.04em}
+.prio-tag.kb{background:rgba(168,255,90,.12);color:var(--neon);font-family:var(--mono);text-transform:none;letter-spacing:0}
+.prio-tag.count{background:rgba(255,255,255,.07);color:var(--t2)}
+.prio-tag.quick{background:rgba(134,239,172,.12);color:var(--baixo)}
+.prio-tag.complex{background:rgba(245,158,11,.12);color:var(--amber)}
+.prio-bars{display:flex;flex-direction:column;gap:.3rem;min-width:130px;flex-shrink:0}
+.prio-bar-row{display:flex;align-items:center;gap:.45rem;font-size:.64rem;color:var(--t3)}
+.prio-bar-g{display:flex;flex-direction:column;gap:.2rem;min-width:90px}
+.prio-bar-lbl{font-family:var(--font-condensed);font-size:.62rem;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;min-width:22px;text-align:right;font-weight:600}
+.prio-bar-track{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden}
+.prio-bar-fill{height:100%;border-radius:100px;transition:width .6s ease}
+.prio-score-gain{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:52px;flex-shrink:0;text-align:center}
+.prio-score-pts{font-family:var(--font-mono);font-size:1.15rem;font-weight:700;color:var(--baixo);line-height:1}
+.prio-score-sub{font-family:var(--font-condensed);font-size:.58rem;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-top:.12rem}
+.prio-action-btn{background:transparent;border:1px solid var(--bdr2);color:var(--t2);font-family:var(--font-condensed);font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:.4rem .85rem;border-radius:7px;cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0}
+.prio-action-btn:hover{border-color:var(--baixo);color:var(--baixo);background:rgba(134,239,172,.08)}
+.prio-action-btn.done-btn{border-color:var(--baixo);color:var(--baixo);background:rgba(134,239,172,.1)}
+.prio-effort{display:flex;align-items:center;gap:.28rem;font-family:var(--font-condensed);font-size:.66rem;color:var(--t3);margin-top:.18rem;letter-spacing:.04em;text-transform:uppercase}
+.effort-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.prio-empty{padding:3.5rem;text-align:center;color:var(--t3);background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);font-family:var(--font-condensed);font-size:.85rem;letter-spacing:.04em}
+
+/* ── VPA TABLES ─────────────────────────────────────── */
+.vpa-section{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden;margin-bottom:1.1rem}
+.vpa-section-hdr{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.1rem;border-bottom:1px solid var(--bdr);flex-wrap:wrap;gap:.5rem}
+.vpa-section-title{font-family:var(--font-condensed);font-size:.95rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--t1)}
+.vpa-section-sub{font-family:var(--font-mono);font-size:.72rem;color:var(--t3);margin-top:.2rem}
+.vpa-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.vpa-table thead tr{border-bottom:1px solid var(--bdr)}
+.vpa-table th{padding:.55rem .9rem;text-align:left;font-family:var(--font-condensed);font-size:.68rem;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}
+.vpa-table th.r{text-align:right}
+.vpa-table tbody tr{border-bottom:1px solid rgba(255,255,255,.025);transition:background .12s}
+.vpa-table tbody tr:hover{background:var(--hover)}
+.vpa-table tbody tr:last-child{border-bottom:none}
+.vpa-table td{padding:.62rem .9rem;vertical-align:middle}
+.vpa-table td.r{text-align:right;font-family:var(--font-mono);font-size:.78rem;color:var(--t2)}
+.vpa-rank{font-family:var(--font-mono);font-size:.68rem;color:var(--t3);width:20px;text-align:right;flex-shrink:0}
+.vpa-col-name{font-weight:600;color:var(--t1);font-size:.8rem;font-family:var(--font-mono)}
+.vpa-tbl-name{font-family:var(--font-body);font-size:.7rem;color:var(--t3);margin-top:.1rem}
+.vpa-bar-wrap{display:flex;align-items:center;gap:.5rem;min-width:130px}
+.vpa-bar-track{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden;min-width:60px}
+.vpa-bar-fill{height:100%;border-radius:100px}
+.vpa-bar-val{font-family:var(--font-mono);font-size:.72rem;white-space:nowrap;min-width:54px;text-align:right;flex-shrink:0}
+.enc-badge{display:inline-flex;align-items:center;gap:.25rem;font-family:var(--font-condensed);font-size:.68rem;font-weight:700;letter-spacing:.06em;padding:.13rem .48rem;border-radius:100px;white-space:nowrap;text-transform:uppercase}
+.enc-badge.hash{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.2);color:var(--red)}
+.enc-badge.value{background:rgba(134,239,172,.12);border:1px solid rgba(134,239,172,.2);color:var(--baixo)}
+.enc-badge.rl{background:rgba(168,255,90,.1);border:1px solid rgba(168,255,90,.2);color:var(--neon)}
+.enc-badge.unknown{background:rgba(71,85,105,.15);border:1px solid var(--bdr);color:var(--t3)}
+.enc-suggest{display:inline-flex;align-items:center;gap:.28rem;font-family:var(--font-condensed);font-size:.68rem;font-weight:700;background:rgba(245,158,11,.09);border:1px solid rgba(245,158,11,.22);color:var(--amber);padding:.13rem .48rem;border-radius:100px;letter-spacing:.05em;text-transform:uppercase}
+.enc-suggest::before{content:'→';opacity:.7}
+.enc-ok{font-family:var(--font-condensed);font-size:.68rem;color:var(--t3)}
+.dtype{font-family:var(--font-mono);font-size:.63rem;color:var(--t3);background:rgba(255,255,255,.04);border:1px solid var(--bdr);padding:.06rem .35rem;border-radius:4px;white-space:nowrap}
+.vpa-tooltip{position:relative;cursor:default}
+.vpa-tooltip:hover .vpa-tip{opacity:1;pointer-events:auto}
+.vpa-tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--card2);border:1px solid var(--bdr2);color:var(--t2);font-family:var(--font-body);font-size:.72rem;padding:.4rem .65rem;border-radius:8px;white-space:nowrap;opacity:0;transition:opacity .15s;pointer-events:none;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+@keyframes ldSpin{to{transform:rotate(360deg)}}
+@keyframes ldPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.18);opacity:0}}
+@keyframes ldStepIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+.ld-step{display:flex;align-items:center;gap:.65rem;padding:.42rem .7rem;border-radius:8px;font-family:var(--font-mono);font-size:.79rem;color:var(--t3);transition:all .3s;border:1px solid transparent}
+.ld-step.active{color:var(--t1);background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.15);animation:ldStepIn .3s ease}
+.ld-step.done{color:var(--baixo);background:rgba(134,239,172,.05);border-color:rgba(134,239,172,.12)}
+.ld-step-icon{font-size:.85rem;flex-shrink:0;transition:all .25s;min-width:14px;text-align:center;display:inline-block}
+.ld-step.active .ld-step-icon{animation:ldSpin .8s linear infinite}
+.ld-step.done .ld-step-icon{animation:none}
+.ld-step-txt{flex:1}
+
+/* ── DETAIL PANEL ─────────────────────────────────── */
+.det-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:flex-start;justify-content:flex-end;backdrop-filter:blur(4px)}
+.det-overlay.open{display:flex}
+.det-panel{width:min(680px,95vw);height:100vh;background:var(--card2);border-left:1px solid var(--bdr2);overflow-y:auto;animation:slideIn .3s ease;display:flex;flex-direction:column}
+@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+.det-hdr{padding:1.4rem 1.6rem;border-bottom:1px solid var(--bdr);position:sticky;top:0;background:var(--card2);z-index:10;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+.det-kb{font-family:var(--font-mono);font-size:.75rem;color:var(--neon);font-weight:600;margin-bottom:.35rem}
+.det-title{font-family:var(--font-condensed);font-size:1.15rem;font-weight:700;line-height:1.4;letter-spacing:.04em;text-transform:uppercase;color:var(--t1)}
+.det-close{background:transparent;border:1px solid var(--bdr2);color:var(--t2);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:.95rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.det-close:hover{border-color:var(--red);color:var(--red)}
+.det-body{padding:1.4rem 1.6rem;flex:1;display:flex;flex-direction:column;gap:1.4rem}
+.det-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.det-stitle{font-family:var(--font-condensed);font-size:.7rem;color:var(--t3);text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:.6rem}
+.det-desc{font-size:.86rem;color:var(--t2);line-height:1.75;font-family:var(--font-body)}
+.det-desc strong{color:var(--t1);font-weight:600}
+.det-warn{background:rgba(252,211,77,.06);border:1px solid rgba(252,211,77,.18);border-radius:8px;padding:.7rem .95rem;font-size:.8rem;color:#fcd34d;line-height:1.6;display:flex;gap:.5rem}
+.code-block{background:rgba(0,0,0,.4);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:.35rem}
+.cb-hdr{display:flex;align-items:center;justify-content:space-between;padding:.42rem .85rem;background:rgba(255,255,255,.025);border-bottom:1px solid var(--bdr)}
+.cb-lbl{font-family:var(--font-condensed);font-size:.67rem;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;font-weight:700}
+.cb-bad{border-color:rgba(248,113,113,.18)}.cb-bad .cb-hdr{background:rgba(248,113,113,.04);border-color:rgba(248,113,113,.15)}
+.cb-good{border-color:rgba(134,239,172,.18)}.cb-good .cb-hdr{background:rgba(134,239,172,.04);border-color:rgba(134,239,172,.15)}
+.code-block pre{padding:.85rem .95rem;font-family:var(--font-mono);font-size:.76rem;color:#e2e8f0;line-height:1.7;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.det-objects{display:flex;flex-direction:column;gap:.45rem}
+.det-obj{display:flex;align-items:center;justify-content:space-between;padding:.55rem .85rem;background:rgba(0,0,0,.25);border:1px solid var(--bdr);border-radius:8px;font-size:.78rem}
+.det-obj-name{font-family:var(--font-mono);color:var(--t1);font-weight:500;font-size:.78rem}
+.det-obj-tbl{color:var(--t3);font-size:.68rem}
+.det-foot{padding:1.15rem 1.6rem;border-top:1px solid var(--bdr);display:flex;gap:.7rem;flex-wrap:wrap}
+.btn-fix-all{flex:1;background:linear-gradient(135deg,var(--baixo),#22c55e);color:#0E0D0B;font-family:var(--font-condensed);font-size:.88rem;font-weight:700;letter-spacing:.06em;padding:.62rem 1.1rem;border-radius:10px;border:none;cursor:pointer;transition:all .2s;min-width:160px;text-transform:uppercase}
+.btn-fix-all:hover{opacity:.9;transform:translateY(-1px)}
+.btn-ign-all{background:transparent;border:1px solid var(--bdr2);color:var(--t2);font-family:var(--font-condensed);font-size:.82rem;letter-spacing:.04em;padding:.58rem 1rem;border-radius:10px;cursor:pointer;transition:all .15s;text-transform:uppercase}
+.btn-ign-all:hover{border-color:var(--medio);color:var(--medio)}
+.empty-state{padding:3rem;text-align:center;color:var(--t3);font-family:var(--font-condensed);font-size:.9rem;letter-spacing:.04em}
+.footer{font-family:var(--font-condensed);text-align:center;padding:2rem;color:var(--t3);font-size:.72rem;border-top:1px solid var(--bdr);margin-top:.5rem;letter-spacing:.08em;text-transform:uppercase}
+
+/* ── VERSION SWITCHER ─────────────────────────────────── */
+.ver-bar{display:flex;align-items:center;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap;padding:.75rem 1rem;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r)}
+.ver-pill{display:inline-flex;align-items:center;gap:.38rem;background:var(--bg);border:1px solid var(--bdr2);border-radius:100px;padding:.28rem .75rem .28rem .45rem;font-family:var(--font-condensed);font-size:.78rem;font-weight:700;letter-spacing:.06em;color:var(--t2);cursor:pointer;transition:all .18s;white-space:nowrap;text-transform:uppercase}
+.ver-pill:hover{border-color:var(--amber);color:var(--t1)}
+.ver-pill.active{background:rgba(245,158,11,.1);border-color:var(--amber);color:var(--amber)}
+.ver-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--t3)}
+.ver-pill.active .ver-dot{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+.ver-pill .ver-x{margin-left:.3rem;opacity:.45;font-size:.65rem}
+.ver-pill .ver-x:hover{opacity:1;color:var(--red)}
+.btn-compare{display:inline-flex;align-items:center;gap:.38rem;background:linear-gradient(135deg,var(--orange),var(--amber));color:#0E0D0B;font-family:var(--font-condensed);font-size:.78rem;font-weight:700;letter-spacing:.08em;padding:.3rem .85rem;border-radius:100px;border:none;cursor:pointer;transition:all .18s;box-shadow:0 2px 12px rgba(245,158,11,.3);text-transform:uppercase}
+.btn-compare:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(245,158,11,.4)}
+.btn-compare:disabled{opacity:.35;cursor:not-allowed;transform:none}
+
+/* ── COMPARE MODAL ──────────────────────────────────── */
+.cmp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;display:none;align-items:flex-start;justify-content:center;backdrop-filter:blur(5px);padding:1.5rem 1rem;overflow-y:auto}
+.cmp-overlay.open{display:flex}
+.cmp-modal{background:var(--card2);border:1px solid var(--bdr2);border-radius:18px;width:100%;max-width:1280px;margin:auto;box-shadow:0 24px 80px rgba(0,0,0,.6);animation:fi .3s ease;overflow:hidden}
+.cmp-hdr{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.5rem;border-bottom:1px solid var(--bdr);background:var(--bg)}
+.cmp-hdr h2{font-family:var(--font-condensed);font-size:1.1rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t1)}
+.cmp-close{background:transparent;border:1px solid var(--bdr2);color:var(--t2);width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.cmp-close:hover{border-color:var(--red);color:var(--red)}
+.cmp-body{padding:1.4rem;display:flex;flex-direction:column;gap:1.4rem}
+.cmp-cols{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem}
+@media(max-width:760px){.cmp-cols{grid-template-columns:1fr}}
+.cmp-col-tag{font-family:var(--font-condensed);font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .48rem;border-radius:100px}
+.cmp-col-tag.v1{background:rgba(245,158,11,.15);color:var(--amber)}
+.cmp-col-tag.v2{background:rgba(234,88,12,.15);color:var(--orange)}
+.cmp-col-hdr{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap}
+.cmp-col-name{font-family:var(--font-condensed);font-size:.88rem;font-weight:700;color:var(--t1);letter-spacing:.04em;text-transform:uppercase}
+.cmp-col-date{font-family:var(--font-mono);font-size:.68rem;color:var(--t3)}
+.cmp-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:.85rem}
+.cmp-stat{background:var(--bg);border:1px solid var(--bdr);border-radius:10px;padding:.65rem .85rem;text-align:center}
+.cmp-stat-val{font-family:var(--font-condensed);font-size:1.7rem;font-weight:300;letter-spacing:.02em;line-height:1}
+.cmp-stat-lbl{font-family:var(--font-condensed);font-size:.65rem;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-top:.18rem}
+.delta{display:inline-flex;align-items:center;font-family:var(--font-condensed);font-size:.66rem;font-weight:700;letter-spacing:.04em;padding:.08rem .36rem;border-radius:100px;margin-left:.3rem}
+.delta.better{background:rgba(134,239,172,.15);color:var(--baixo)}
+.delta.worse{background:rgba(248,113,113,.15);color:var(--red)}
+.delta.same{background:rgba(255,255,255,.06);color:var(--t3)}
+.cmp-diff-title{font-family:var(--font-condensed);font-size:.7rem;color:var(--t3);text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
+.cmp-diff-title::after{content:'';flex:1;height:1px;background:var(--bdr)}
+.diff-list{display:flex;flex-direction:column;gap:.3rem;max-height:240px;overflow-y:auto;padding-right:2px}
+.diff-item{display:flex;align-items:center;gap:.45rem;padding:.4rem .65rem;border-radius:8px;font-size:.77rem;border:1px solid var(--bdr)}
+.diff-item.new-issue{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.2)}
+.diff-item.resolved{background:rgba(134,239,172,.06);border-color:rgba(134,239,172,.2)}
+.diff-kb{font-family:var(--font-mono);font-size:.67rem;color:var(--neon);flex-shrink:0}
+.diff-name{color:var(--t1);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.cmp-score-block{background:var(--bg);border:1px solid var(--bdr);border-radius:10px;padding:.85rem 1rem}
+.cmp-score-row{display:flex;align-items:center;gap:.85rem;margin-bottom:.6rem}
+.cmp-score-row:last-child{margin-bottom:0}
+.cmp-score-lbl{font-family:var(--font-condensed);font-size:.72rem;font-weight:700;min-width:22px;text-align:right;flex-shrink:0;letter-spacing:.04em}
+.cmp-score-track{flex:1;height:7px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden}
+.cmp-score-fill{height:100%;border-radius:100px;transition:width .7s ease}
+.cmp-score-num{font-family:var(--font-mono);font-size:.78rem;font-weight:700;min-width:28px;flex-shrink:0}
+
+/* ── MDX SECTION ────────────────────────────────────── */
+.mdx-section{}
+.mdx-alert{display:flex;gap:.85rem;padding:.9rem 1.1rem;background:rgba(252,211,77,.04);border-top:1px solid rgba(252,211,77,.12);border-bottom:1px solid rgba(252,211,77,.12)}
+.mdx-alert-icon{font-size:1.3rem;flex-shrink:0;margin-top:.1rem}
+.mdx-alert-body{flex:1}
+.mdx-alert-title{font-family:var(--font-condensed);font-size:.88rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--medio);margin-bottom:.3rem}
+.mdx-alert-text{font-family:var(--font-body);font-size:.78rem;color:var(--t2);line-height:1.65}
+.mdx-alert-text code{background:rgba(255,255,255,.07);border:1px solid var(--bdr2);padding:.05rem .3rem;border-radius:4px;font-family:var(--mono);font-size:.7rem;color:var(--neon)}
+.mdx-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.mdx-table th,.mdx-table td{padding:.55rem .9rem;vertical-align:middle}
+.mdx-table th{font-family:var(--font-condensed);font-size:.68rem;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.1em;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
+.mdx-table td{border-bottom:1px solid rgba(255,255,255,.025)}
+.mdx-table tbody tr{transition:background .12s}
+.mdx-table tbody tr:hover{background:var(--hover)}
+.mdx-table tbody tr:last-child td{border-bottom:none}
+.mdx-col-name{font-weight:600;color:var(--t1);font-size:.8rem;font-family:var(--font-mono)}
+.mdx-tbl-name{font-family:var(--font-body);font-size:.7rem;color:var(--t3);margin-top:.1rem}
+.mdx-type-badge{display:inline-flex;align-items:center;gap:.25rem;font-family:var(--font-condensed);font-size:.65rem;font-weight:700;padding:.14rem .5rem;border-radius:100px;white-space:nowrap;letter-spacing:.05em;text-transform:uppercase}
+.mdx-type-badge.pk{background:rgba(168,255,90,.12);border:1px solid rgba(168,255,90,.28);color:var(--neon)}
+.mdx-type-badge.fk{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.28);color:var(--amber)}
+/* MDX TOGGLE — interruptor verde/vermelho */
+.mdx-toggle{position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0;cursor:pointer;vertical-align:middle}
+.mdx-toggle input{opacity:0;width:0;height:0;position:absolute;margin:0}
+.mdx-toggle-track{position:absolute;inset:0;border-radius:100px;background:rgba(248,113,113,.22);border:1px solid rgba(248,113,113,.35);transition:all .25s;pointer-events:none}
+.mdx-toggle-thumb{position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#F87171;transition:all .25s;box-shadow:0 1px 4px rgba(0,0,0,.4);pointer-events:none}
+.mdx-toggle input:checked ~ .mdx-toggle-track{background:rgba(134,239,172,.22);border-color:rgba(134,239,172,.45)}
+.mdx-toggle input:checked ~ .mdx-toggle-thumb{left:auto;right:3px;background:#86EFAC}
+.mdx-status{font-family:var(--font-condensed);font-size:.7rem;font-weight:700;white-space:nowrap;letter-spacing:.05em;text-transform:uppercase}
+.mdx-status.enabled{color:var(--baixo)}
+.mdx-status.disabled{color:var(--alto)}
+.mdx-impact-bar{display:inline-flex;align-items:center;gap:.4rem;background:rgba(255,255,255,.04);border:1px solid var(--bdr);border-radius:6px;padding:.18rem .55rem;font-size:.7rem;color:var(--t2)}
+.mdx-footer{padding:.75rem 1.1rem;border-top:1px solid var(--bdr);font-family:var(--font-body);font-size:.72rem;color:var(--t3);line-height:1.7;display:flex;align-items:flex-start;gap:.5rem}
+
+/* ── SESSION TIMER OVERRIDE ─────────────────────────── */
+#session-timer{
+  font-family:var(--font-condensed)!important;
+}
+
+</style>
+</head>
+<body>
+<canvas id="meteor-canvas"></canvas>
+
+<!-- LOGIN -->
+<div id="login-screen" style="display:none">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="logo-icon">⚡</div>
+      <h1 class="login-title">Model Analyzer - BI</h1>
+      <p class="login-sub">Power BI · Análise de Boas Práticas<br>Acesso restrito — insira suas credenciais</p>
+    </div>
+    <div id="login-err"></div>
+    <div class="login-field">
+      <label class="login-label" for="login-email">E-MAIL</label>
+      <input class="login-input" id="login-email" type="email" placeholder="seu@email.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label class="login-label" for="login-password">SENHA</label>
+      <input class="login-input" id="login-password" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Entrar →</button>
+    <p class="login-footer">Sem acesso? Entre em contato com o administrador.</p>
+  </div>
+</div>
+
+<!-- UPLOAD -->
+<div id="upload-screen">
+  <div class="upload-logo">
+    <div class="logo-icon">⚡</div>
+    <h1 class="logo-title">Model Analyzer - BI</h1>
+    <p class="logo-sub">Power BI · Análise de Boas Práticas</p>
+  </div>
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <span class="drop-icon">📦📊📈</span>
+    <p class="drop-title">Arraste seu arquivo VPAX aqui</p>
+    <p class="drop-sub">ou clique para selecionar</p>
+    <span class="drop-badge">.vpax</span>
+  </div>
+  <input type="file" id="file-input" accept=".vpax">
+  <button class="btn-primary" onclick="document.getElementById('file-input').click()">→ Selecionar arquivo VPAX</button>
+  <div class="error-msg" id="error-msg"></div>
+</div>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:2rem;width:100%;max-width:480px;padding:0 1.5rem">
+
+    <div style="position:relative;width:88px;height:88px">
+      <div style="position:absolute;inset:-12px;border-radius:50%;background:rgba(245,158,11,.08);animation:ldPulse 2s ease-in-out infinite"></div>
+      <div style="position:absolute;inset:0;border-radius:50%;background:linear-gradient(135deg,#2a1800,#1a0e00);border:1px solid rgba(245,158,11,.25);display:flex;align-items:center;justify-content:center;font-size:2.2rem">⚡</div>
+      <svg style="position:absolute;inset:-6px;width:calc(100% + 12px);height:calc(100% + 12px);animation:ldSpin 2.4s linear infinite" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(245,158,11,.12)" stroke-width="3"/>
+        <circle cx="50" cy="50" r="46" fill="none" stroke="url(#ldGrad)" stroke-width="3" stroke-linecap="round" stroke-dasharray="72 217"/>
+        <defs><linearGradient id="ldGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#F59E0B"/><stop offset="100%" stop-color="#EA580C"/></linearGradient></defs>
+      </svg>
+    </div>
+
+    <div style="text-align:center">
+      <div id="ld-headline" style="font-size:1.25rem;font-weight:700;color:var(--t1);margin-bottom:.35rem;transition:opacity .4s">Analisando modelo...</div>
+      <div id="ld-fun" style="font-size:.82rem;color:var(--t3);font-family:var(--mono);min-height:1.2em;transition:opacity .4s">Preparando os motores DAX...</div>
+    </div>
+
+    <div style="width:100%">
+      <div style="height:4px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden;margin-bottom:.65rem">
+        <div id="ld-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--amber),var(--neon));border-radius:100px;transition:width .6s cubic-bezier(.34,1.56,.64,1)"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span id="ld-pct" style="font-family:var(--mono);font-size:.72rem;color:var(--blue);font-weight:600">0%</span>
+        <span id="ld-eta" style="font-size:.7rem;color:var(--t3)">estimando...</span>
+      </div>
+    </div>
+
+    <div style="width:100%;display:flex;flex-direction:column;gap:.4rem">
+      <div class="ld-step" id="step-1" data-msg="Descompactando o .vpax..."><span class="ld-step-icon">○</span><span class="ld-step-txt">Extraindo DaxModel.json</span></div>
+      <div class="ld-step" id="step-2" data-msg="Lendo todas as medidas do modelo..."><span class="ld-step-icon">○</span><span class="ld-step-txt">Carregando medidas DAX</span></div>
+      <div class="ld-step" id="step-3" data-msg="Consultando a base de conhecimento..."><span class="ld-step-icon">○</span><span class="ld-step-txt">Verificando boas práticas</span></div>
+      <div class="ld-step" id="step-4" data-msg="Checando relações, tabelas e colunas..."><span class="ld-step-icon">○</span><span class="ld-step-txt">Analisando metadados</span></div>
+      <div class="ld-step" id="step-5" data-msg="Quase lá! Montando o relatório..."><span class="ld-step-icon">○</span><span class="ld-step-txt">Gerando relatório</span></div>
+    </div>
+
+    <div id="ld-fact" style="width:100%;background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.1);border-radius:10px;padding:.75rem 1rem;font-size:.76rem;color:var(--t2);line-height:1.65;opacity:0;transition:opacity .5s">
+      <span style="color:var(--cyan);font-weight:600;font-family:var(--mono);font-size:.68rem;display:block;margin-bottom:.2rem">💡 VOCÊ SABIA?</span>
+      <span id="ld-fact-txt"></span>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <nav class="sidebar">
+    <div class="sidebar-logo">⚡</div>
+    <button class="nav-item active" onclick="navTo('overview',this)"><span class="nav-icon">📊</span><span class="nav-label">Visão Geral</span></button>
+    <button class="nav-item" onclick="navTo('problems',this)"><span class="nav-icon">⚠️</span><span class="nav-label">Problemas</span></button>
+    <button class="nav-item" onclick="navTo('priority',this)"><span class="nav-icon">🎯</span><span class="nav-label">Prioridades</span></button>
+    <button class="nav-item" onclick="navTo('checklist',this)"><span class="nav-icon">✅</span><span class="nav-label">Checklist</span></button>
+    <button class="nav-item" onclick="navTo('vertipaq',this)"><span class="nav-icon">🔬</span><span class="nav-label">VertiPaq</span></button>
+    <button class="nav-item" onclick="navTo('dependencies',this)"><span class="nav-icon">🕸️</span><span class="nav-label">Dependências</span></button>
+    <button class="nav-item" onclick="navTo('mquery',this)"><span class="nav-icon">⚙️</span><span class="nav-label">Otimizador M</span></button>
+    <div class="nav-sep"></div>
+    <button class="btn-reset-nav" id="btn-new-ver" onclick="addVersion()" style="color:var(--cyan)"><span class="nav-icon">📥</span><span class="nav-label">Nova versão</span></button>
+    <button class="btn-reset-nav" onclick="resetApp()"><span class="nav-icon">↩</span><span class="nav-label">Nova análise</span></button>
+  </nav>
+
+  <div class="main">
+    <div class="topbar">
+      <div><h1 id="page-title">Visão Geral</h1><p id="page-sub"></p></div>
+      <div class="topbar-r">
+        <div class="badge">📁 <span id="hdr-model">—</span></div>
+        <div class="badge">🕐 <span id="hdr-refresh">—</span></div>
+      </div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="page active" id="page-overview">
+      <!-- VERSION BAR (shown when >1 version exists) -->
+      <div class="ver-bar" id="ver-bar" style="display:none">
+        <span style="font-size:.7rem;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;font-weight:600;flex-shrink:0">Versões</span>
+        <div id="ver-pills" style="display:flex;gap:.4rem;flex-wrap:wrap"></div>
+        <button class="btn-compare" id="btn-compare" onclick="openCompare()" disabled>⚖️ Comparar versões</button>
+      </div>
+      <input type="file" id="ver-file-input" accept=".vpax" style="display:none">
+
+      <!-- WELCOME BANNER -->
+      <div id="welcome-banner" style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;padding:1rem 1.4rem;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r)">
+        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">👤</div>
+        <div>
+          <div style="font-size:.72rem;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:.1rem">Bem-vindo(a) de volta</div>
+          <div id="welcome-email" style="font-size:.95rem;font-weight:600;color:var(--t1);font-family:var(--mono)">—</div>
+        </div>
+      </div>
+
+      <!-- SCORE SECTION (moved from checklist) -->
+      <div class="score-sec" style="margin-bottom:2rem">
+        <div class="rings-row">
+          <!-- SCORE RING -->
+          <div class="ring-wrap ring-main">
+            <svg class="ring-svg" viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="52"/>
+              <circle class="ring-fill" id="ring-score-fill" cx="60" cy="60" r="52"
+                stroke="url(#grad-score)"
+                style="stroke-dasharray:326.7;stroke-dashoffset:326.7"/>
+              <defs>
+                <linearGradient id="grad-score" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#F59E0B"/>
+                  <stop offset="100%" stop-color="#EA580C"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <div class="ring-inner">
+              <div class="ring-val" id="score-num">—</div>
+              <div class="ring-lbl">/ 100</div>
+              <div class="ring-sub">Score</div>
+              <div class="grade-badge" id="score-grade" style="opacity:0;margin-top:.35rem;font-size:.95rem;width:30px;height:30px">—</div>
+            </div>
+          </div>
+
+          <div class="rings-right">
+            <div style="font-size:.95rem;font-weight:700;margin-bottom:.2rem">Score de Qualidade</div>
+            <div style="font-size:.76rem;color:var(--t2);line-height:1.6;margin-bottom:1rem">Marque os itens do checklist e corrija os problemas para subir o score. Os círculos de CPU e RAM refletem a <strong>pressão técnica restante</strong> no modelo — quanto menor, melhor.</div>
+            <div class="small-rings">
+              <!-- CPU RING -->
+              <div class="ring-wrap ring-small">
+                <svg class="ring-svg" viewBox="0 0 80 80">
+                  <circle class="ring-bg" cx="40" cy="40" r="33"/>
+                  <circle class="ring-fill" id="ring-cpu-fill" cx="40" cy="40" r="33"
+                    stroke="var(--alto)"
+                    style="stroke-dasharray:207.3;stroke-dashoffset:207.3"/>
+                </svg>
+                <div class="ring-inner">
+                  <div class="ring-val ring-val-sm" id="ring-cpu-val">—</div>
+                  <div class="ring-sub ring-sub-sm">CPU</div>
+                </div>
+              </div>
+              <!-- RAM RING -->
+              <div class="ring-wrap ring-small">
+                <svg class="ring-svg" viewBox="0 0 80 80">
+                  <circle class="ring-bg" cx="40" cy="40" r="33"/>
+                  <circle class="ring-fill" id="ring-ram-fill" cx="40" cy="40" r="33"
+                    stroke="var(--orange)"
+                    style="stroke-dasharray:207.3;stroke-dashoffset:207.3"/>
+                </svg>
+                <div class="ring-inner">
+                  <div class="ring-val ring-val-sm" id="ring-ram-val">—</div>
+                  <div class="ring-sub ring-sub-sm">RAM</div>
+                </div>
+              </div>
+              <div class="rings-legend">
+                <div class="rl-item"><span class="rl-dot" style="background:#F87171"></span><span>CPU — pressão no Formula Engine</span></div>
+                <div class="rl-item"><span class="rl-dot" style="background:#FB923C"></span><span>RAM — pressão de memória VertiPaq</span></div>
+                <div class="rl-item" style="margin-top:.4rem;color:var(--t3)"><span class="rl-dot" style="background:var(--green)"></span><span>Círculo cheio = totalmente otimizado; vazio = pressão máxima</span></div>
+              </div>
+            </div>
+            <div class="score-bar-o" style="margin-top:1rem"><div class="score-bar-f" id="score-bar" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stitle">📋 Resumo de Problemas</div>
+      <div class="grid-sum">
+        <div class="stat-card total"><div class="slabel">Total</div><div class="sval total" id="s-total">0</div><div class="ssub">findings</div></div>
+        <div class="stat-card alto"><div class="slabel">🔴 Alto</div><div class="sval alto" id="s-alto">0</div><div class="ssub">ação imediata</div></div>
+        <div class="stat-card medio"><div class="slabel">🟡 Médio</div><div class="sval medio" id="s-medio">0</div><div class="ssub">melhorar logo</div></div>
+        <div class="stat-card baixo"><div class="slabel">🟢 Baixo</div><div class="sval baixo" id="s-baixo">0</div><div class="ssub">boas práticas</div></div>
+        <div class="stat-card ok"><div class="slabel">✅ Checklist OK</div><div class="sval ok" id="s-ok">0</div><div class="ssub">aprovadas</div></div>
+        <div class="stat-card inf"><div class="slabel">📊 Medidas</div><div class="sval inf" id="s-measures">0</div><div class="ssub">no modelo</div></div>
+      </div>
+
+      <div class="stitle">🗄️ Metadados do Modelo</div>
+      <div class="grid-model">
+        <div class="info-card"><div class="ii b">📁</div><div><div class="ilabel">Nome do Relatório</div><div class="ival" id="m-name">—</div></div></div>
+        <div class="info-card"><div class="ii c">💾</div><div><div class="ilabel">Tamanho da Base</div><div class="ival" id="m-size">—</div></div></div>
+        <div class="info-card"><div class="ii g">🗃️</div><div><div class="ilabel">Tabelas</div><div class="ival" id="m-tables">—</div></div></div>
+        <div class="info-card"><div class="ii b">🔢</div><div><div class="ilabel">Colunas</div><div class="ival" id="m-cols">—</div></div></div>
+        <div class="info-card"><div class="ii p">📐</div><div><div class="ilabel">Medidas</div><div class="ival" id="m-measures">—</div></div></div>
+        <div class="info-card"><div class="ii o">🔐</div><div><div class="ilabel">Roles RLS</div><div class="ival" id="m-rls">—</div></div></div>
+        <div class="info-card"><div class="ii r">📈</div><div><div class="ilabel">Máx. Linhas</div><div class="ival" id="m-maxrows">—</div></div></div>
+        <div class="info-card"><div class="ii o">📦</div><div><div class="ilabel">Coluna Maior Tamanho</div><div class="ival" id="m-maxcol">—</div></div></div>
+      </div>
+
+      <div class="stitle">🏷 Problemas por Regra KB</div>
+      <div class="kb-grid" id="kb-grid"></div>
+
+      <div class="footer">Gerado em <span id="footer-date"></span> · Model Analyzer - BI v3</div>
+    </div>
+
+    <!-- PROBLEMS -->
+    <div class="page" id="page-problems">
+      <div class="prob-toolbar">
+        <button class="fbt active" onclick="filterProbs('all',this)">Todos<span class="tag-cnt" id="fc-all">0</span></button>
+        <button class="fbt alto" onclick="filterProbs('Alto',this)">🔴 Alto<span class="tag-cnt" id="fc-alto">0</span></button>
+        <button class="fbt medio" onclick="filterProbs('Médio',this)">🟡 Médio<span class="tag-cnt" id="fc-medio">0</span></button>
+        <button class="fbt baixo" onclick="filterProbs('Baixo',this)">🟢 Baixo<span class="tag-cnt" id="fc-baixo">0</span></button>
+        <label style="display:flex;align-items:center;gap:.35rem;font-size:.76rem;color:var(--t2);cursor:pointer;margin-left:.25rem">
+          <input type="checkbox" id="hide-ignored" onchange="renderProblems()" style="accent-color:var(--blue)"> Ocultar ignorados
+        </label>
+        <input type="text" class="srch" id="prob-search" placeholder="🔍 Buscar KB, medida, tabela..." oninput="renderProblems()">
+      </div>
+      <div class="prob-table-wrap">
+        <table>
+          <thead><tr>
+            <th style="width:36px">#</th>
+            <th>Problema</th>
+            <th class="sortable" id="th-imp" onclick="sortBy('imp')">Impacto<span class="sort-icon"></span></th>
+            <th class="sortable" id="th-cpu" onclick="sortBy('cpu')">CPU<span class="sort-icon"></span></th>
+            <th class="sortable" id="th-ram" onclick="sortBy('ram')">RAM<span class="sort-icon"></span></th>
+            <th>Objeto</th>
+            <th>Severidade</th>
+            <th>Ações</th>
+          </tr></thead>
+          <tbody id="prob-tbody"></tbody>
+        </table>
+        <div class="pagination">
+          <span id="prob-info">—</span>
+          <div class="pg-btns" id="prob-pg-btns"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRIORITY -->
+    <div class="page" id="page-priority">
+      <div class="prio-header">
+        <div class="prio-header-info">
+          <h3>🎯 Plano de Otimização Inteligente</h3>
+          <p>Problemas ordenados pelo maior <strong>ganho de score + impacto técnico</strong> (CPU × RAM × ocorrências × severidade). Corrija nessa ordem para evoluir o modelo com o menor esforço possível.</p>
+        </div>
+        <div class="prio-gain-badge">
+          <div class="prio-gain-val" id="prio-potential">0</div>
+          <div class="prio-gain-lbl">pts potenciais</div>
+        </div>
+      </div>
+      <div class="prio-section">
+        <div class="prio-section-title">🔥 Críticos — Corrija Agora</div>
+        <div id="prio-critical"></div>
+      </div>
+      <div class="prio-section">
+        <div class="prio-section-title">⚡ Alto Impacto</div>
+        <div id="prio-high"></div>
+      </div>
+      <div class="prio-section">
+        <div class="prio-section-title">📈 Melhorias Incrementais</div>
+        <div id="prio-medium"></div>
+      </div>
+    </div>
+
+    <!-- CHECKLIST -->
+    <div class="page" id="page-checklist">
+      <div class="score-sec">
+        <div class="ck-grid" id="ck-grid"></div>
+      </div>
+    </div>
+
+    <!-- VERTIPAQ -->
+    <div class="page" id="page-vertipaq">
+      <div style="display:flex;gap:.4rem;margin-bottom:1.5rem;border-bottom:1px solid var(--bdr);padding-bottom:.75rem;flex-wrap:wrap">
+        <button class="vpa-tab active" id="vpatab-card" onclick="vpaTab('card',this)">📊 Maior Cardinalidade</button>
+        <button class="vpa-tab" id="vpatab-size" onclick="vpaTab('size',this)">💾 Maior Tamanho</button>
+        <button class="vpa-tab" id="vpatab-enc" onclick="vpaTab('enc',this)">⚙️ Troca de Encoding<span class="vpa-tab-cnt" id="vpatab-enc-cnt" style="display:none">0</span></button>
+        <button class="vpa-tab" id="vpatab-mdx" onclick="vpaTab('mdx',this)">🔓 MDX Habilitado<span class="vpa-tab-cnt" id="vpatab-mdx-cnt" style="display:none">0</span></button>
+        <button class="vpa-tab" id="vpatab-refresh" onclick="vpaTab('refresh',this)">⏱️ Estimador de Refresh</button>
+        <button class="vpa-tab" id="vpatab-ram" onclick="vpaTab('ram',this)">🧮 Redução de RAM<span class="vpa-tab-cnt" id="vpatab-ram-cnt" style="display:none">0</span></button>
+      </div>
+
+      <div class="vpa-panel active" id="vpapanel-card">
+      <div class="vpa-section">
+        <div class="vpa-section-hdr">
+          <div>
+            <div class="vpa-section-title">📊 Top 10 — Maior Cardinalidade</div>
+            <div class="vpa-section-sub">Colunas com mais valores distintos · alto impacto na compressão VertiPaq e no consumo de RAM</div>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="vpa-table">
+            <thead><tr>
+              <th style="width:26px">#</th><th>Coluna</th><th>Tipo</th>
+              <th>Cardinalidade</th><th class="r">% do Total</th><th class="r">Linhas da Tabela</th>
+            </tr></thead>
+            <tbody id="vpa-card-body">
+              <tr><td colspan="6"><div class="empty-state" style="padding:1.5rem">Aguardando análise de VPAX com DaxVpaView.json</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      </div><!-- /#vpapanel-card -->
+
+      <div class="vpa-panel" id="vpapanel-size">
+      <div class="vpa-section">
+        <div class="vpa-section-hdr">
+          <div>
+            <div class="vpa-section-title">💾 Top 10 — Maior Tamanho em Memória</div>
+            <div class="vpa-section-sub">Maiores consumidoras de RAM · dicionário + estrutura de dados VertiPaq</div>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="vpa-table">
+            <thead><tr>
+              <th style="width:26px">#</th><th>Coluna</th><th>Tipo</th><th>Encoding</th>
+              <th>Tamanho Total</th><th class="r">Dicionário</th><th class="r">Dados</th><th class="r">% do Modelo</th>
+            </tr></thead>
+            <tbody id="vpa-size-body">
+              <tr><td colspan="8"><div class="empty-state" style="padding:1.5rem">Aguardando análise de VPAX com DaxVpaView.json</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      </div><!-- /#vpapanel-size -->
+
+      <div class="vpa-panel" id="vpapanel-enc">
+      <div class="vpa-section">
+        <div class="vpa-section-hdr">
+          <div>
+            <div class="vpa-section-title">⚙️ Oportunidades de Troca de Encoding</div>
+            <div class="vpa-section-sub">Colunas numéricas com encoding HASH que poderiam usar VALUE — reduz RAM e acelera queries de agregação</div>
+          </div>
+          <div id="enc-summary"></div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="vpa-table">
+            <thead><tr>
+              <th style="width:26px">#</th><th>Coluna</th><th>Tipo de Dado</th>
+              <th>Encoding Atual</th><th>Sugestão</th>
+              <th class="r">Cardinalidade</th><th class="r">Tamanho</th><th>Motivo</th>
+            </tr></thead>
+            <tbody id="vpa-enc-body">
+              <tr><td colspan="8"><div class="empty-state" style="padding:1.5rem">Aguardando análise de VPAX com DaxVpaView.json</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="enc-pagination" class="pagination" style="display:none">
+          <span id="enc-pg-info">—</span>
+          <div class="pg-btns" id="enc-pg-btns"></div>
+        </div>
+        <div id="enc-footer" style="display:none;padding:.75rem 1.1rem;border-top:1px solid var(--bdr);font-size:.72rem;color:var(--t3);line-height:1.7">
+          💡 <strong style="color:var(--t2)">Como aplicar:</strong> No Tabular Editor, selecione a coluna → propriedade <code style="background:rgba(255,255,255,.06);padding:.08rem .3rem;border-radius:3px;font-family:var(--mono);font-size:.7rem">EncodingHint</code> → altere de <code style="background:rgba(255,255,255,.06);padding:.08rem .3rem;border-radius:3px;font-family:var(--mono);font-size:.7rem">Default</code> para <code style="background:rgba(255,255,255,.06);padding:.08rem .3rem;border-radius:3px;font-family:var(--mono);font-size:.7rem">Value</code> → processe o modelo. O VertiPaq aplicará VALUE encoding na próxima compressão.
+        </div>
+      </div>
+      </div><!-- /#vpapanel-enc -->
+
+      <div class="vpa-panel" id="vpapanel-mdx">
+      <!-- MDX DISABLE SECTION -->
+      <div class="vpa-section mdx-section" id="mdx-section">
+        <div class="vpa-section-hdr">
+          <div>
+            <div class="vpa-section-title">🔓 Colunas com MDX Habilitado — PKs e FKs</div>
+            <div class="vpa-section-sub">Colunas chave detectadas que podem ter MDX desabilitado para reduzir overhead do servidor OLAP</div>
+          </div>
+          <div id="mdx-summary"></div>
+        </div>
+        <div class="mdx-alert">
+          <div class="mdx-alert-icon">⚠️</div>
+          <div class="mdx-alert-body">
+            <div class="mdx-alert-title">Atenção antes de desabilitar MDX</div>
+            <div class="mdx-alert-text">
+              Desabilitar MDX em colunas remove a propriedade <code>IsAvailableInMDX = true</code> no modelo tabular. Isso <strong style="color:#fcd34d">impede que a coluna apareça em clientes MDX</strong> (Excel via OLAP, Report Builder, SSRS legado) — consultas DAX e Power BI Web <strong style="color:#fcd34d">não são afetadas</strong>.<br>
+              <strong style="color:#fcd34d">Ganho:</strong> Reduz o tamanho das hierarquias de atributos geradas automaticamente, diminui RAM e acelera o tempo de discovery do modelo. Ideal para PKs/FKs inteiras que nunca aparecem em slicers ou visuais.
+            </div>
+          </div>
+        </div>
+        <div style="overflow-x:auto;margin-top:.65rem">
+          <table class="mdx-table">
+            <thead><tr>
+              <th style="width:26px">#</th>
+              <th>Coluna</th>
+              <th>Tipo Detectado</th>
+              <th>Tipo de Dado</th>
+              <th>Cardinalidade</th>
+              <th>Tamanho</th>
+              <th style="text-align:center">MDX Ativo</th>
+              <th style="text-align:center">Ação</th>
+            </tr></thead>
+            <tbody id="mdx-tbody"></tbody>
+          </table>
+        </div>
+        <div class="mdx-footer">
+          💡 <span><strong style="color:var(--t2)">Como aplicar no Tabular Editor:</strong> Selecione a coluna → propriedade <code style="background:rgba(255,255,255,.06);padding:.06rem .28rem;border-radius:3px;font-family:var(--mono);font-size:.7rem;color:var(--cyan)">IsAvailableInMDX</code> → altere para <code style="background:rgba(255,255,255,.06);padding:.06rem .28rem;border-radius:3px;font-family:var(--mono);font-size:.7rem;color:var(--cyan)">False</code>. Em XMLA, adicione a annotation <code style="background:rgba(255,255,255,.06);padding:.06rem .28rem;border-radius:3px;font-family:var(--mono);font-size:.7rem;color:var(--cyan)">"IsAvailableInMDX": false</code> na coluna. Processe o modelo após salvar.</span>
+        </div>
+        <div id="mdx-no-data" style="display:none;padding:1.5rem;text-align:center">
+          <div class="empty-state">🎯 Nenhuma coluna PK/FK detectada com MDX habilitado.</div>
+        </div>
+        <div id="mdx-pagination" class="pagination" style="display:none">
+          <span id="mdx-pg-info">—</span>
+          <div class="pg-btns" id="mdx-pg-btns"></div>
+        </div>
+      </div>
+      <div id="mdx-empty-tab" style="display:none" class="vpa-section">
+        <div class="empty-state" style="padding:2rem 1.5rem">🎯 Nenhuma coluna PK/FK detectada com MDX habilitado neste modelo</div>
+      </div>
+      </div><!-- /#vpapanel-mdx -->
+
+      <div class="vpa-panel" id="vpapanel-refresh">
+      <!-- REFRESH TIME PREDICTOR -->
+      <div class="vpa-section" id="refresh-predictor-section">
+        <div class="vpa-section-hdr">
+          <div>
+            <div class="vpa-section-title">⏱️ Estimador de Tempo de Refresh</div>
+            <div class="vpa-section-sub">Heurística baseada em complexidade do código M, número de joins, buffers e chamadas de fonte por partição</div>
+          </div>
+          <div id="refresh-summary"></div>
+        </div>
+        <div id="refresh-predictor-body">
+          <div class="empty-state" style="padding:1.5rem">Aguardando análise de VPAX com Model.bim para ler partições</div>
+        </div>
+        <div class="mdx-footer">
+          💡 <span><strong style="color:var(--t2)">Como ler:</strong> A estimativa é uma <strong>aproximação</strong> baseada em sinais estáticos do código M (joins, buffers, cross-source merges, Web.Contents) ponderados pelo volume de linhas da tabela. Refreshes reais sofrem influência de rede, CPU do gateway, locks na fonte e paralelismo. Use o ranking para identificar tabelas-gargalo, não como SLA absoluto.</span>
+        </div>
+      </div>
+      </div><!-- /#vpapanel-refresh -->
+
+      <div class="vpa-panel" id="vpapanel-ram">
+      <!-- RAM CALCULATOR -->
+      <div class="vpa-section" id="ram-calculator-section">
+        <div class="vpa-section-hdr">
+          <div>
+            <div class="vpa-section-title">🧮 Calculadora de Redução de RAM</div>
+            <div class="vpa-section-sub">Estimativa de economia aplicando boas práticas: separar DateTime, desabilitar auto-date/time, remover colunas ocultas, converter calculadas</div>
+          </div>
+          <div id="ram-calc-total"></div>
+        </div>
+        <div id="ram-calc-body">
+          <div class="empty-state" style="padding:1.5rem">Aguardando análise de VPAX com DaxVpaView.json</div>
+        </div>
+        <div class="mdx-footer">
+          💡 <span><strong style="color:var(--t2)">Como ler:</strong> As economias são <strong>estimativas</strong> baseadas em padrões observados do VertiPaq. O ganho real depende da cardinalidade exata após a transformação e do encoding final aplicado. Para o auto-date/time, o ganho é tipicamente de 1–10MB por coluna do tipo Date/DateTime.</span>
+        </div>
+      </div>
+      </div><!-- /#vpapanel-ram -->
+    </div>
+
+    <!-- DEPENDENCY GRAPH PAGE -->
+    <div class="page" id="page-dependencies">
+      <div class="vpa-section">
+        <div class="vpa-section-hdr">
+          <div>
+            <div class="vpa-section-title">🕸️ Grafo de Dependências entre Medidas</div>
+            <div class="vpa-section-sub">Mapa de quais medidas chamam quais. Power BI Desktop não mostra essa relação nativamente.</div>
+          </div>
+          <div id="dep-summary"></div>
+        </div>
+        <div id="dep-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.6rem;padding:1rem 1.1rem;border-bottom:1px solid var(--bdr)"></div>
+        <div id="dep-tabs" style="display:flex;gap:.4rem;padding:.75rem 1.1rem;border-bottom:1px solid var(--bdr);flex-wrap:wrap"></div>
+        <div id="dep-body" style="padding:1rem 1.1rem">
+          <div class="empty-state" style="padding:1.5rem">Aguardando análise de medidas DAX</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- M QUERY OPTIMIZER -->
+    <div class="page" id="page-mquery">
+      <div style="display:flex;gap:.4rem;margin-bottom:1.5rem;border-bottom:1px solid var(--bdr);padding-bottom:.75rem;flex-wrap:wrap">
+        <button class="mq-tab active" id="mqtab-otimizador" onclick="mqTab('otimizador',this)">⚙️ Otimizador de Código</button>
+        <button class="mq-tab" id="mqtab-boas-praticas" onclick="mqTab('boas-praticas',this)">📘 Boas Práticas</button>
+        <button class="mq-tab" id="mqtab-folding" onclick="mqTab('folding',this)">🔀 Query Folding</button>
+        <button class="mq-tab" id="mqtab-ordem" onclick="mqTab('ordem',this)">📋 Ordem dos Steps</button>
+        <button class="mq-tab" id="mqtab-transformacoes" onclick="mqTab('transformacoes',this)">🧰 Transformações</button>
+      </div>
+
+      <div class="mq-panel active" id="mqpanel-otimizador">
+        <div class="vpa-section">
+          <div class="vpa-section-hdr">
+            <div>
+              <div class="vpa-section-title">⚙️ Otimizador de Código M</div>
+              <div class="vpa-section-sub">Cole o código M de uma query para receber diagnóstico + código otimizado com justificativas</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;padding:1rem 1.1rem">
+            <div>
+              <div class="mq-label">Código M original</div>
+              <textarea id="mq-input" placeholder="let&#10;    Fonte = Sql.Database(&quot;servidor&quot;, &quot;db&quot;),&#10;    Tabela = Fonte{[Schema=&quot;dbo&quot;,Item=&quot;Vendas&quot;]}[Data],&#10;    TipoAlterado = Table.TransformColumnTypes(Tabela, ...),&#10;    ColRemovida = Table.RemoveColumns(TipoAlterado, {&quot;Lixo&quot;})&#10;in&#10;    ColRemovida" class="mq-textarea"></textarea>
+              <div style="display:flex;gap:.6rem;margin-top:.75rem;flex-wrap:wrap;align-items:center">
+                <button onclick="analisarM()" class="mq-btn-primary">🔍 Analisar e Otimizar</button>
+                <button onclick="limparM()" class="mq-btn-secondary">Limpar</button>
+                <span id="mq-loading" style="display:none;font-family:var(--font-condensed);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--neon)">⏳ Analisando...</span>
+              </div>
+            </div>
+            <div>
+              <div class="mq-label">Resumo diagnóstico</div>
+              <div id="mq-result" class="mq-result-box">
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:.75rem;color:var(--t3)">
+                  <span style="font-size:2rem">⚙️</span>
+                  <span style="font-family:var(--font-condensed);font-size:.78rem;letter-spacing:.1em;text-transform:uppercase">Cole um código M e clique em Analisar</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="vpa-section" id="mq-findings-section" style="display:none">
+          <div class="vpa-section-hdr">
+            <div>
+              <div class="vpa-section-title">🔍 Problemas Detectados</div>
+              <div class="vpa-section-sub" id="mq-findings-sub">—</div>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="vpa-table">
+              <thead><tr>
+                <th style="width:26px">#</th><th>Regra</th><th>Severidade</th><th>Trecho Detectado</th><th>Sugestão</th>
+              </tr></thead>
+              <tbody id="mq-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="vpa-section" id="mq-optimized-section" style="display:none">
+          <div class="vpa-section-hdr">
+            <div>
+              <div class="vpa-section-title">✨ Código Otimizado</div>
+              <div class="vpa-section-sub">Versão refatorada seguindo as boas práticas — pronta para copiar</div>
+            </div>
+            <button onclick="copiarCodigoM(this)" class="mq-btn-secondary" style="flex-shrink:0">📋 Copiar código</button>
+          </div>
+          <div style="padding:1rem 1.1rem">
+            <pre id="mq-optimized-code" class="mq-code-block"></pre>
+            <div id="mq-optimized-changes" style="margin-top:1rem"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mq-panel" id="mqpanel-boas-praticas">
+        <div class="vpa-section">
+          <div class="vpa-section-hdr">
+            <div>
+              <div class="vpa-section-title">📘 Princípios de Boas Práticas M</div>
+              <div class="vpa-section-sub">Princípios fundamentais para escrever código M performático e manutenível</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.75rem;padding:1rem 1.1rem" id="mq-boas-praticas-grid"></div>
+        </div>
+      </div>
+
+      <div class="mq-panel" id="mqpanel-folding">
+        <div class="vpa-section">
+          <div class="vpa-section-hdr">
+            <div>
+              <div class="vpa-section-title">🔀 O Que Quebra o Query Folding</div>
+              <div class="vpa-section-sub">Operações que impedem a tradução das transformações para a fonte de dados</div>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="vpa-table" id="mq-folding-table">
+              <thead><tr>
+                <th>Operação que Quebra</th><th>Alternativa que Preserva</th><th>Severidade</th><th>Observação</th>
+              </tr></thead>
+              <tbody id="mq-folding-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="mq-panel" id="mqpanel-ordem">
+        <div class="vpa-section">
+          <div class="vpa-section-hdr">
+            <div>
+              <div class="vpa-section-title">📋 Ordem Recomendada dos Steps</div>
+              <div class="vpa-section-sub">Sequência ideal de transformações para máxima performance</div>
+            </div>
+          </div>
+          <div id="mq-ordem-list" style="display:flex;flex-direction:column;gap:.55rem;padding:1rem 1.1rem"></div>
+        </div>
+      </div>
+
+      <div class="mq-panel" id="mqpanel-transformacoes">
+        <div class="vpa-section">
+          <div class="vpa-section-hdr">
+            <div>
+              <div class="vpa-section-title">🧰 Transformações Essenciais de Limpeza</div>
+              <div class="vpa-section-sub">Snippets reutilizáveis para tarefas comuns de tratamento de dados</div>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="vpa-table">
+              <thead><tr><th>Operação</th><th>Código M</th><th>Quando Usar</th></tr></thead>
+              <tbody id="mq-transf-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.main -->
+</div><!-- /#app -->
+
+<!-- DETAIL PANEL (fora do #app para funcionar em todas as abas) -->
+<div class="det-overlay" id="det-overlay" onclick="closeDetOverlay(event)">
+  <div class="det-panel" id="det-panel">
+    <div class="det-hdr">
+      <div>
+        <div class="det-kb" id="det-kb">KB 000000</div>
+        <div class="det-title" id="det-title">—</div>
+      </div>
+      <button class="det-close" onclick="closeDet()">✕</button>
+    </div>
+    <div class="det-body" id="det-body"></div>
+    <div class="det-foot" id="det-foot"></div>
+  </div>
+</div>
+
+<!-- COMPARE MODAL (fora do #app para funcionar em todas as abas) -->
+<div class="cmp-overlay" id="cmp-overlay" onclick="closeCmpOverlay(event)">
+  <div class="cmp-modal">
+    <div class="cmp-hdr">
+      <h2>⚖️ Comparação de Versões</h2>
+      <button class="cmp-close" onclick="closeCmp()">✕</button>
+    </div>
+    <div class="cmp-body" id="cmp-body"></div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// Nota: este arquivo é a REFERÊNCIA VISUAL original (um produto
+// diferente — Model Analyzer para Power BI). O CSS e o HTML foram
+// preservados na íntegra (tokens, tipografia, estrutura, breakpoints,
+// componentes — tudo que a especificação manda reaproveitar). O
+// <script> original (~3.500 linhas de lógica do analisador BI) foi
+// removido nesta cópia: é lógica de negócio de outro produto, não faz
+// parte da referência de design e não é usado pelo painel de peso.
+// O arquivo original completo permanece na conversa com o Claude.
+// ─────────────────────────────────────────────────────────────
+</script>
+</body>
+</html>
