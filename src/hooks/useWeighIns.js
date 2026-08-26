@@ -7,11 +7,18 @@ let status = "idle"; // idle | loading | ready | error
 let errorMsg = null;
 const listeners = new Set();
 
+// Incrementado a cada clearWeighInsCache() (chamado no logout). fetchAll()
+// captura o epoch vigente antes do await e descarta a resposta se ele mudou
+// enquanto esperava — sem isso, um fetch lento do usuário A que resolve
+// DEPOIS de B já ter logado na mesma aba repopularia o cache com dados de A.
+let epoch = 0;
+
 function notify() {
   for (const fn of listeners) fn();
 }
 
 export function clearWeighInsCache() {
+  epoch++;
   cache = null;
   status = "idle";
   errorMsg = null;
@@ -37,7 +44,10 @@ function toRow(entry, userId) {
   };
 }
 
-async function fetchAll() {
+// Exportada só para teste (mock de supabase.js) — dentro do app, use sempre
+// o hook useWeighIns(), que coordena cache/status/listeners corretamente.
+export async function fetchAll() {
+  const myEpoch = epoch;
   status = "loading";
   errorMsg = null;
   notify();
@@ -45,6 +55,7 @@ async function fetchAll() {
     .from("weigh_ins")
     .select("*")
     .order("date", { ascending: true });
+  if (myEpoch !== epoch) return; // sessão trocou enquanto a resposta estava a caminho
   if (error) {
     status = "error";
     errorMsg = "Não consegui carregar as pesagens. Verifique a conexão e tente de novo.";
@@ -54,6 +65,10 @@ async function fetchAll() {
   }
   notify();
 }
+
+// Só para teste (Vitest, mock de supabase.js) — o app nunca deve ler o
+// cache por aqui, só através do hook useWeighIns().
+export const __test = { getCache: () => cache, getStatus: () => status };
 
 export function useWeighIns() {
   const [, force] = useState(0);

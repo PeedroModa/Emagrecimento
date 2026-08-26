@@ -55,7 +55,7 @@ export default function Nutricao() {
         </div>
       )}
 
-      <CaloriesCard settings={settings} onChange={onChange} currentWeight={currentWeight} hasWeights={hasWeights} />
+      <CaloriesCard settings={settings} currentWeight={currentWeight} hasWeights={hasWeights} />
       <MacrosCard settings={settings} onChange={onChange} currentWeight={currentWeight} hasWeights={hasWeights} />
       <SimulatorCard hasWeights={hasWeights} currentWeight={currentWeight} goal={settings.goal_kg} />
     </div>

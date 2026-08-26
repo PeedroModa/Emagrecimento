@@ -4,9 +4,23 @@ import { updatePassword, signOut } from "../hooks/useAuth.js";
 
 export const MIN_PASSWORD = 8;
 
-// Tela de troca de senha. Usada como porta obrigatória logo após o primeiro
-// login (senha provisória vinda do SQL) e também dentro de Ajustes.
-export default function TrocarSenha({ obrigatorio = false, onDone, onCancel }) {
+const COPY = {
+  obrigatorio: {
+    title: "Troque a senha",
+    subtitle: <>Você entrou com a senha provisória.<br />Escolha uma senha sua antes de continuar — mínimo {MIN_PASSWORD} caracteres.</>,
+  },
+  recovery: {
+    title: "Redefinir senha",
+    subtitle: <>Você pediu para redefinir sua senha.<br />Escolha uma senha nova — mínimo {MIN_PASSWORD} caracteres.</>,
+  },
+};
+
+// Tela de troca de senha. Três usos com o mesmo formulário: porta obrigatória
+// logo após o login com senha provisória (mode="obrigatorio"), fluxo de
+// redefinição vindo do e-mail (mode="recovery"), e troca voluntária inline
+// dentro de Ajustes (sem mode).
+export default function TrocarSenha({ mode, onDone, onCancel }) {
+  const fullScreen = mode === "obrigatorio" || mode === "recovery";
   const [pw1, setPw1] = useState("");
   const [pw2, setPw2] = useState("");
   const [show, setShow] = useState(false);
@@ -44,7 +58,7 @@ export default function TrocarSenha({ obrigatorio = false, onDone, onCancel }) {
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <input
             type={show ? "text" : "password"} value={pw1} placeholder="••••••••"
-            autoComplete="new-password" autoFocus={obrigatorio}
+            autoComplete="new-password" autoFocus={fullScreen}
             onChange={(e) => setPw1(e.target.value)}
           />
           <button
@@ -66,21 +80,22 @@ export default function TrocarSenha({ obrigatorio = false, onDone, onCancel }) {
       </label>
 
       {state === "error" && <p className="msg-error" role="alert">{errMsg}</p>}
-      {state === "done" && !obrigatorio && <p className="msg-ok" role="status">Senha alterada.</p>}
+      {state === "done" && !fullScreen && <p className="msg-ok" role="status">Senha alterada.</p>}
 
       <div className="flex-row" style={{ gap: 8 }}>
         <button type="submit" className="btn-primary" disabled={state === "saving"}>
           <KeyRound size={16} /> {state === "saving" ? "Salvando..." : "Salvar nova senha"}
         </button>
-        {!obrigatorio && onCancel && (
+        {!fullScreen && onCancel && (
           <button type="button" className="btn-secondary" onClick={onCancel}>Cancelar</button>
         )}
       </div>
     </form>
   );
 
-  if (!obrigatorio) return form;
+  if (!fullScreen) return form;
 
+  const copy = COPY[mode];
   return (
     <div className="login-screen">
       <div className="login-box">
@@ -90,11 +105,8 @@ export default function TrocarSenha({ obrigatorio = false, onDone, onCancel }) {
           </div>
         </div>
         <div>
-          <h1 className="login-title">Troque a senha</h1>
-          <p className="login-sub">
-            Você entrou com a senha provisória.
-            <br />Escolha uma senha sua antes de continuar — mínimo {MIN_PASSWORD} caracteres.
-          </p>
+          <h1 className="login-title">{copy.title}</h1>
+          <p className="login-sub">{copy.subtitle}</p>
         </div>
         {form}
         <button className="btn-ghost" style={{ alignSelf: "center" }} onClick={() => signOut()}>

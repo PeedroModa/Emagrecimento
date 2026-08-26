@@ -190,6 +190,61 @@ describe("computeCalories — Mifflin-St Jeor (valores de referência)", () => {
   });
 });
 
+describe("computeCalories — Mifflin-St Jeor específico por sexo", () => {
+  // Mesma altura/idade/peso/treino/déficit para os dois sexos: a única
+  // variável é o termo final da fórmula (+5 para homens, -161 para
+  // mulheres) — isolando exatamente a diferença de 166 kcal que a fórmula
+  // exige (5 - (-161) = 166), e provando que ela se propaga por TDEE e alvo.
+  const base = { hasWeights: true, currentWeight: 70, height: 165, age: 30, trainDays: 3, deficitPct: 15 };
+
+  it("BMR masculino: 10×70 + 6.25×165 - 5×30 + 5 = 1586", () => {
+    const res = computeCalories({ ...base, sex: "M" });
+    expect(res.bmr).toBe(1586);
+  });
+
+  it("BMR feminino: 10×70 + 6.25×165 - 5×30 - 161 = 1420", () => {
+    const res = computeCalories({ ...base, sex: "F" });
+    expect(res.bmr).toBe(1420);
+  });
+
+  it("a diferença de BMR entre M e F é exatamente 166 kcal (5 - (-161))", () => {
+    const resM = computeCalories({ ...base, sex: "M" });
+    const resF = computeCalories({ ...base, sex: "F" });
+    expect(resM.bmr - resF.bmr).toBe(166);
+  });
+
+  it("TDEE herda a diferença via o mesmo fator de atividade", () => {
+    const resM = computeCalories({ ...base, sex: "M" });
+    const resF = computeCalories({ ...base, sex: "F" });
+    expect(resM.factor).toBe(resF.factor); // fator de atividade não depende do sexo
+    expect(resM.tdee).toBe(2181);
+    expect(resF.tdee).toBe(1953);
+  });
+
+  it("alvo com déficit herda a diferença", () => {
+    const resM = computeCalories({ ...base, sex: "M" });
+    const resF = computeCalories({ ...base, sex: "F" });
+    expect(resM.target).toBe(1854);
+    expect(resF.target).toBe(1660);
+  });
+
+  it("qualquer valor de sexo diferente de 'M' usa a fórmula feminina (não há terceiro caso)", () => {
+    const resF = computeCalories({ ...base, sex: "F" });
+    const resOther = computeCalories({ ...base, sex: "outro" });
+    expect(resOther.bmr).toBe(resF.bmr);
+  });
+
+  it("macros herdam a diferença de sexo através do alvo de calorias", () => {
+    const resM = computeCalories({ ...base, sex: "M" });
+    const resF = computeCalories({ ...base, sex: "F" });
+    const macrosM = computeMacros({ hasWeights: true, kcal: resM.target, currentWeight: 70, protPct: 30, fatPct: 30, protPerKg: 2, fatPerKg: 0.9 });
+    const macrosF = computeMacros({ hasWeights: true, kcal: resF.target, currentWeight: 70, protPct: 30, fatPct: 30, protPerKg: 2, fatPerKg: 0.9 });
+    expect(macrosM.kcal).toBe(1854);
+    expect(macrosF.kcal).toBe(1660);
+    expect(macrosM.byPct.prot.g).toBeGreaterThan(macrosF.byPct.prot.g);
+  });
+});
+
 describe("activityFactor", () => {
   it("mapeia treinos/semana para fator e label", () => {
     expect(activityFactor(0)).toEqual({ factor: 1.2, label: "sedentário" });

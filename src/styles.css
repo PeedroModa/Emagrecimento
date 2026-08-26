@@ -104,6 +104,17 @@ body {
   max-width: 860px;
 }
 
+/* Em telas largas, 860px deixa boa parte da janela vazia. Alarga o
+   container em passos moderados — não ao ponto de esticar os grids de
+   3 blocos (BMR/TDEE/alvo, macros) além do confortável. */
+@media (min-width: 1280px) {
+  .main { max-width: 1040px; }
+  .chart-wrap { height: 340px; }
+}
+@media (min-width: 1600px) {
+  .main { max-width: 1180px; }
+}
+
 .bottom-nav { display: none; }
 
 @media (max-width: 760px) {

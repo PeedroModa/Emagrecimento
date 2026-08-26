@@ -1,15 +1,7 @@
 import { Info } from "lucide-react";
 import { computeCalories } from "../../lib/calculations.js";
 
-function Pill({ active, onClick, children }) {
-  return (
-    <button type="button" className={"toggle-pill" + (active ? " active" : "")} onClick={onClick}>
-      {children}
-    </button>
-  );
-}
-
-export default function CaloriesCard({ settings, onChange, currentWeight, hasWeights }) {
+export default function CaloriesCard({ settings, currentWeight, hasWeights }) {
   const calories = computeCalories({
     hasWeights,
     currentWeight,
@@ -40,24 +32,14 @@ export default function CaloriesCard({ settings, onChange, currentWeight, hasWei
         </div>
       </div>
 
-      <div style={{ marginBottom: 14 }}>
-        <div className="small-label">
-          treinos por semana · <span style={{ color: "var(--good)" }}>{calories.factorLabel} (×{calories.factor})</span>
-        </div>
-        <div className="flex-row" style={{ gap: 4, marginTop: 4 }}>
-          {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => (
-            <Pill key={d} active={settings.train_days === d} onClick={() => onChange({ train_days: d })}>{d}×</Pill>
-          ))}
-        </div>
-      </div>
-
       <div style={{ marginBottom: 16 }}>
-        <div className="small-label">déficit para recomposição</div>
-        <div className="flex-row" style={{ gap: 4, marginTop: 4 }}>
-          {[10, 15, 20].map((d) => (
-            <Pill key={d} active={settings.deficit_pct === d} onClick={() => onChange({ deficit_pct: d })}>{d}%</Pill>
-          ))}
+        <div className="small-label">
+          treinos e déficit · <span style={{ color: "var(--good)" }}>{calories.factorLabel} (×{calories.factor})</span>
         </div>
+        <div className="num" style={{ padding: ".6rem .75rem", background: "var(--card2)", borderRadius: 8, fontSize: ".9rem", color: "var(--t2)" }}>
+          {settings.train_days}× por semana · déficit {settings.deficit_pct}%
+        </div>
+        <div style={{ fontSize: ".7rem", color: "var(--t3)", marginTop: 3 }}>edita em Ajustes</div>
       </div>
 
       <div className="flex-row" style={{ gap: 12, borderTop: "1px solid var(--bdr-soft)", paddingTop: 14 }}>

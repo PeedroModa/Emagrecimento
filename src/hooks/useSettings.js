@@ -28,11 +28,16 @@ let pendingTimer = null;
 let snapshotBeforePending = null;
 const listeners = new Set();
 
+// Ver comentário equivalente em useWeighIns.js: protege contra um
+// fetchSettings() lento do usuário A resolver depois de B já ter logado.
+let epoch = 0;
+
 function notify() {
   for (const fn of listeners) fn();
 }
 
 export function clearSettingsCache() {
+  epoch++;
   clearTimeout(pendingTimer);
   pendingTimer = null;
   snapshotBeforePending = null;
@@ -59,11 +64,15 @@ function pickSettings(row) {
   return out;
 }
 
-async function fetchSettings() {
+// Exportada só para teste (mock de supabase.js) — dentro do app, use sempre
+// o hook useSettings(), que coordena cache/status/listeners corretamente.
+export async function fetchSettings() {
+  const myEpoch = epoch;
   status = "loading";
   errorMsg = null;
   notify();
   const { data, error } = await supabase.from("user_settings").select("*").maybeSingle();
+  if (myEpoch !== epoch) return; // sessão trocou enquanto a resposta estava a caminho
   if (error) {
     status = "error";
     errorMsg = "Não consegui carregar as configurações. Verifique a conexão e tente de novo.";
@@ -94,6 +103,10 @@ function scheduleSave(userId) {
     notify();
   }, 600);
 }
+
+// Só para teste (Vitest, mock de supabase.js) — o app nunca deve ler o
+// cache por aqui, só através do hook useSettings().
+export const __test = { getCache: () => cache, getStatus: () => status, getSaveState: () => saveState };
 
 export function useSettings() {
   const [, force] = useState(0);

@@ -20,14 +20,14 @@ function LoadingScreen({ text = "Carregando painel..." }) {
   );
 }
 
-// Portas de entrada, na ordem: trocar a senha provisória -> informar a data de
-// nascimento -> app. Cada porta só aparece enquanto o dado ainda falta.
+// Portas de entrada, na ordem: trocar a senha provisória -> completar o
+// perfil -> app. Cada porta só aparece enquanto o dado ainda falta.
 function Onboarding({ user }) {
   const { settings, loading, error, retry, save, saveState } = useSettings();
   const [senhaTrocada, setSenhaTrocada] = useState(false);
 
   if (mustChangePassword(user) && !senhaTrocada) {
-    return <TrocarSenha obrigatorio onDone={() => setSenhaTrocada(true)} />;
+    return <TrocarSenha mode="obrigatorio" onDone={() => setSenhaTrocada(true)} />;
   }
 
   if (loading) return <LoadingScreen text="Carregando configurações..." />;
@@ -46,8 +46,8 @@ function Onboarding({ user }) {
   if (!settings.birth_date) {
     return (
       <PrimeiroAcesso
-        onSave={(date) => save({ birth_date: date }, user.id)}
-        erroSalvar={saveState === "error" ? "Não consegui salvar a data. Verifique a conexão e tente de novo." : null}
+        onSave={(patch) => save(patch, user.id)}
+        erroSalvar={saveState === "error" ? "Não consegui salvar seu perfil. Verifique a conexão e tente de novo." : null}
       />
     );
   }
@@ -68,10 +68,18 @@ function Onboarding({ user }) {
 }
 
 export default function App() {
-  const { session, user, loading } = useAuth();
+  const { session, user, loading, passwordRecovery, markRecoveryDone, sessionExpired, dismissSessionExpired } = useAuth();
 
   if (loading) return <LoadingScreen />;
-  if (!session) return <Login />;
+
+  // Prioridade máxima: uma sessão de recovery "parece" uma sessão normal —
+  // sem essa checagem antes do roteamento comum, o usuário cairia direto no
+  // dashboard usando a sessão temporária, sem nunca definir a senha nova.
+  if (passwordRecovery && session) {
+    return <TrocarSenha mode="recovery" onDone={markRecoveryDone} />;
+  }
+
+  if (!session) return <Login sessionExpired={sessionExpired} dismissSessionExpired={dismissSessionExpired} />;
 
   return <Onboarding user={user} />;
 }
