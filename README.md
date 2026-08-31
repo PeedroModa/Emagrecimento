@@ -16,7 +16,7 @@ usuário é visível, editável ou removível por outro. Ver
 [`supabase/test-rls-isolation.sql`](supabase/test-rls-isolation.sql) para a
 prova executável disso contra o banco real.
 
----
+----
 
 ## 1. Criar o projeto no Supabase
 
