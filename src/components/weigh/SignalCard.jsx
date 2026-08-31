@@ -1,6 +1,8 @@
 import { Info } from "lucide-react";
+import ContextTagPrompt from "./ContextTagPrompt.jsx";
+import { SIGNAL_TAG_IDS } from "../../lib/contextTags.js";
 
-export default function SignalCard({ signalRead }) {
+export default function SignalCard({ signalRead, showTagPrompt, onSaveContext, onSkipContext }) {
   if (!signalRead) return null;
 
   if (signalRead.status === "insufficient") {
@@ -50,6 +52,16 @@ export default function SignalCard({ signalRead }) {
           <Info size={13} style={{ flexShrink: 0, marginTop: 3 }} />
           <span>Baseado em {signalRead.samplePrior} variações anteriores. Quanto mais você pesar, mais afiada fica a leitura da sua oscilação real.</span>
         </div>
+      )}
+
+      {showTagPrompt && (
+        <ContextTagPrompt
+          tagIds={SIGNAL_TAG_IDS}
+          question="Essa variação passou do seu ruído típico. Quer registrar o que pode ter influenciado?"
+          showNoteButton
+          onSubmit={onSaveContext}
+          onSkip={onSkipContext}
+        />
       )}
     </div>
   );

@@ -5,7 +5,7 @@ import { useWeighIns } from "../hooks/useWeighIns.js";
 import { useSettings } from "../hooks/useSettings.js";
 import {
   computeSeries, computeTrend, computeRecords, fmtDateBR,
-  AVG_WINDOW_DAYS, TREND_WINDOW_OPTIONS, regressionWindowFor,
+  AVG_WINDOW_DAYS, TREND_WINDOW_OPTIONS, regressionWindowFor, trendRateChange,
 } from "../lib/calculations.js";
 import WeightChart from "../components/weigh/WeightChart.jsx";
 import TrendCard from "../components/weigh/TrendCard.jsx";
@@ -20,7 +20,7 @@ import { useToast, Toast } from "../components/ui/Toast.jsx";
 
 export default function Evolucao() {
   const { user } = useAuth();
-  const { weighIns, loading, error, retry, update, remove } = useWeighIns();
+  const { weighIns, loading, error, retry, update, remove, setContextTags } = useWeighIns();
   const { settings } = useSettings();
   const { toast, show } = useToast();
   const [confirm, setConfirm] = useState(null);
@@ -47,6 +47,22 @@ export default function Evolucao() {
     const ws = weighIns.filter((w) => w.waist);
     return ws.length >= 2 ? +(ws[ws.length - 1].waist - ws[0].waist).toFixed(1) : null;
   })();
+  const sample = bfEntries.length;
+
+  const latest = weighIns[weighIns.length - 1];
+  const rateChange = windowDays === AVG_WINDOW_DAYS ? trendRateChange(weighIns, goal, settings.height_cm) : null;
+  const showTrendPrompt = !!rateChange && latest?.context_tags === null;
+
+  async function handleSaveContext(tags, note) {
+    const { error: err } = await setContextTags(latest.id, tags);
+    if (err) { show(err, "error"); return; }
+    if (note?.trim()) await update(latest.id, { ...latest, note: note.trim().slice(0, 80) }, user.id);
+    show("Contexto salvo.");
+  }
+
+  async function handleSkipContext() {
+    await setContextTags(latest.id, []);
+  }
 
   async function handleEdit(id, next) {
     const other = weighIns.find((w) => w.date === next.date && w.id !== id);
@@ -137,9 +153,13 @@ export default function Evolucao() {
         )}
       </div>
 
-      <TrendCard trend={trend} goal={goal} windowDays={windowDays} />
+      <TrendCard
+        trend={trend} goal={goal} windowDays={windowDays}
+        rateChange={rateChange} showTagPrompt={showTrendPrompt}
+        onSaveContext={handleSaveContext} onSkipContext={handleSkipContext}
+      />
       <RecordsCard records={records} />
-      <RecompCard fatDelta={fatDelta} leanDelta={leanDelta} waistDelta={waistDelta} />
+      <RecompCard fatDelta={fatDelta} leanDelta={leanDelta} waistDelta={waistDelta} sample={sample} />
       <ProgressionBars series={series} goal={goal} />
 
       <div className="card">

@@ -1,4 +1,5 @@
-import { todayISO } from "./calculations.js";
+import { todayISO, CONTEXT_TAG_MAX } from "./calculations.js";
+import { CONTEXT_TAG_IDS } from "./contextTags.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -15,6 +16,7 @@ export function buildExportJSON(weighIns, settings) {
       ...(w.waist ? { waist: w.waist } : {}),
       ...(w.neck ? { neck: w.neck } : {}),
       ...(w.note ? { note: w.note } : {}),
+      ...(w.context_tags?.length ? { context_tags: w.context_tags } : {}),
     })),
   };
   return JSON.stringify(payload, null, 2);
@@ -53,6 +55,12 @@ export function parseImportJSON(text) {
       ...(typeof w.waist === "number" && w.waist > 0 ? { waist: w.waist } : {}),
       ...(typeof w.neck === "number" && w.neck > 0 ? { neck: w.neck } : {}),
       ...(w.note ? { note: String(w.note).slice(0, 80) } : {}),
+      ...(() => {
+        const tags = Array.isArray(w.context_tags)
+          ? w.context_tags.filter((id) => CONTEXT_TAG_IDS.includes(id)).slice(0, CONTEXT_TAG_MAX)
+          : [];
+        return tags.length ? { context_tags: tags } : {};
+      })(),
     }));
   // datas repetidas dentro do próprio arquivo: a última vence
   const byDate = new Map();

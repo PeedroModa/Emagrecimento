@@ -71,6 +71,40 @@ describe("parseImportJSON — validação de entrada", () => {
     expect(res.logs[0]).not.toHaveProperty("user_id");
     expect(res.logs[0]).not.toHaveProperty("userId");
   });
+
+  it("context_tags com ids conhecidas (até 2) passa intacto", () => {
+    const res = parseImportJSON(JSON.stringify({
+      weightLogs: [{ date: "2026-01-01", weight: 80, context_tags: ["retencao", "treino"] }],
+    }));
+    expect(res.logs[0].context_tags).toEqual(["retencao", "treino"]);
+  });
+
+  it("descarta ids de tag desconhecidas individualmente, sem falhar o import inteiro", () => {
+    const res = parseImportJSON(JSON.stringify({
+      weightLogs: [{ date: "2026-01-01", weight: 80, context_tags: ["retencao", "tag-inventada"] }],
+    }));
+    expect(res.error).toBeUndefined();
+    expect(res.logs[0].context_tags).toEqual(["retencao"]);
+  });
+
+  it("trunca context_tags em mais de 2 ids, mantendo as duas primeiras", () => {
+    const res = parseImportJSON(JSON.stringify({
+      weightLogs: [{ date: "2026-01-01", weight: 80, context_tags: ["retencao", "treino", "alimentacao"] }],
+    }));
+    expect(res.logs[0].context_tags).toEqual(["retencao", "treino"]);
+  });
+
+  it("context_tags que não é array, ou vazio, não aparece no log resultante", () => {
+    const naoArray = parseImportJSON(JSON.stringify({
+      weightLogs: [{ date: "2026-01-01", weight: 80, context_tags: "retencao" }],
+    }));
+    expect(naoArray.logs[0]).not.toHaveProperty("context_tags");
+
+    const vazio = parseImportJSON(JSON.stringify({
+      weightLogs: [{ date: "2026-01-02", weight: 80, context_tags: [] }],
+    }));
+    expect(vazio.logs[0]).not.toHaveProperty("context_tags");
+  });
 });
 
 describe("buildExportJSON — nada além dos próprios dados entra no arquivo", () => {
@@ -82,5 +116,17 @@ describe("buildExportJSON — nada além dos próprios dados entra no arquivo", 
     expect(json.goal).toBe(75);
     expect(json.bfTarget).toBe(15);
     expect(json.weightLogs[0]).not.toHaveProperty("user_id");
+  });
+
+  it("exporta context_tags quando há tags respondidas, mas não o estado 'pulou' ([])", () => {
+    const weighIns = [
+      { id: "abc", date: "2026-01-01", weight: 80, context_tags: ["retencao"] },
+      { id: "def", date: "2026-01-08", weight: 79, context_tags: [] },
+      { id: "ghi", date: "2026-01-15", weight: 78, context_tags: null },
+    ];
+    const json = JSON.parse(buildExportJSON(weighIns, { goal_kg: 75, bf_target: 15 }));
+    expect(json.weightLogs[0].context_tags).toEqual(["retencao"]);
+    expect(json.weightLogs[1]).not.toHaveProperty("context_tags");
+    expect(json.weightLogs[2]).not.toHaveProperty("context_tags");
   });
 });

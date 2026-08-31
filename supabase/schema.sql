@@ -12,6 +12,7 @@ create table if not exists weigh_ins (
   waist_cm numeric(5,1) check (waist_cm > 0),
   neck_cm numeric(5,1) check (neck_cm > 0),
   note text check (char_length(note) <= 80),
+  context_tags text[],
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   unique (user_id, date)

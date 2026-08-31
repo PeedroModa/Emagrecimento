@@ -268,6 +268,16 @@ button:disabled { cursor: default; opacity: .55; }
   background: rgba(232, 85, 46, .12);
   color: var(--accent);
 }
+.toggle-pill:disabled { opacity: .4; }
+
+/* ── Tags de contexto (pesagem/tendência) ── */
+.tag-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: .2rem .55rem; border-radius: 999px;
+  font-family: var(--font-condensed); font-size: .7rem; font-weight: 600; letter-spacing: .04em;
+  font-style: normal;
+  background: rgba(232, 85, 46, .12); color: var(--accent);
+}
 
 /* ── Empty state ── */
 .empty-state {

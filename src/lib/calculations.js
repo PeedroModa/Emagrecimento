@@ -37,6 +37,8 @@ export function regressionWeeksFor(windowDays) {
 }
 export const NOISE_FLOOR = 0.2; // piso do desvio-padrão do "é real ou ruído?"
 export const BF_FLOOR = 10; // trava fisiológica da projeção de composição
+export const COMP_CONFIDENT_SAMPLE = 4; // nº de medidas de cintura a partir do qual gordura/magra viram número, não só direção
+export const CONTEXT_TAG_MAX = 2; // limite de tags de contexto por pesagem
 
 export function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -241,6 +243,18 @@ export function computeLastChange(sortedWeights) {
   const diff = +(curr.weight - prev.weight).toFixed(1);
   const gapDays = daysBetween(prev.date, curr.date);
   return { diff, gapDays, note: curr.note, prevWeight: prev.weight, date: curr.date };
+}
+
+// Detecta se rateStatus(trend).key mudou entre a pesagem mais recente e a
+// anterior a ela — sem nenhum estado persistido, é sempre recomputado a
+// partir da série. null = sem comparação válida (pouca amostra de qualquer
+// um dos dois lados) ou sem mudança de categoria.
+export function trendRateChange(sortedWeights, goal, heightCm, windowDays = TREND_WINDOW_DAYS) {
+  if (sortedWeights.length < 3) return null;
+  const current = rateStatus(computeTrend(sortedWeights, goal, heightCm, windowDays));
+  const prior = rateStatus(computeTrend(sortedWeights.slice(0, -1), goal, heightCm, windowDays));
+  if (!current || !prior || current.key === prior.key) return null;
+  return { from: prior, to: current };
 }
 
 export function rateStatus(trend) {

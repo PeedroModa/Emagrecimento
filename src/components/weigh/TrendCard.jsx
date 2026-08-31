@@ -1,9 +1,14 @@
 import { TrendingDown, TrendingUp, Minus, AlertTriangle, Info, Ruler } from "lucide-react";
-import { rateStatus, regressionWeeksFor, AVG_WINDOW_DAYS } from "../../lib/calculations.js";
+import { rateStatus, regressionWeeksFor, AVG_WINDOW_DAYS, COMP_CONFIDENT_SAMPLE } from "../../lib/calculations.js";
+import ContextTagPrompt from "./ContextTagPrompt.jsx";
+import { TREND_TAG_IDS } from "../../lib/contextTags.js";
 
 const RATE_ICONS = { rising: TrendingUp, below: Minus, fast: AlertTriangle, healthy: TrendingDown };
+// Rótulos curtos para o banner de mudança de categoria — mesma taxonomia de rateStatus().key,
+// só que resumida, já que o .text de cada categoria é uma frase completa (não encadeia bem).
+const RATE_LABELS = { rising: "ganho de peso", below: "ritmo abaixo do esperado", fast: "ritmo acelerado demais", healthy: "ritmo saudável" };
 
-export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS }) {
+export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS, rateChange, showTagPrompt, onSaveContext, onSkipContext }) {
   if (!trend) return null;
   const semanas = regressionWeeksFor(windowDays);
   const status = rateStatus(trend);
@@ -12,6 +17,25 @@ export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS })
 
   return (
     <div className="card">
+      {rateChange && (
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "rgba(201,162,75,.08)", borderLeft: "3px solid var(--warn)", borderRadius: 6, padding: "12px 14px", marginBottom: 16 }}>
+          <AlertTriangle size={15} style={{ color: "var(--warn)", flexShrink: 0, marginTop: 2 }} />
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: ".84rem", color: "var(--t1)", lineHeight: 1.5, margin: 0 }}>
+              Sua tendência das últimas {semanas} semanas virou de {RATE_LABELS[rateChange.from.key]} para {RATE_LABELS[rateChange.to.key]}.
+            </p>
+            {showTagPrompt && (
+              <ContextTagPrompt
+                tagIds={TREND_TAG_IDS}
+                question="Quer registrar o que mudou no período?"
+                showNoteButton={false}
+                onSubmit={onSaveContext}
+                onSkip={onSkipContext}
+              />
+            )}
+          </div>
+        </div>
+      )}
       <div className="flex-between">
         <div>
           <div className="card-label" style={{ marginBottom: 4 }}>Tendência · últimas {semanas} semanas</div>
@@ -63,6 +87,21 @@ export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS })
       <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--bdr-soft)" }}>
         <div className="card-label" style={{ marginBottom: 8 }}>Projeção de composição na meta</div>
         {trend.projection ? (
+          trend.projection.sample < COMP_CONFIDENT_SAMPLE ? (
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start", color: "var(--t2)", fontSize: ".85rem", lineHeight: 1.55 }}>
+              <Info size={14} style={{ flexShrink: 0, marginTop: 3 }} />
+              <span>
+                Com só {trend.projection.sample} medidas de cintura, a extrapolação ainda oscila muito pra
+                afirmar um percentual. O que dá pra dizer:{" "}
+                <strong style={{ color: "var(--t1)" }}>
+                  {trend.projection.fatShare != null && trend.projection.fatShare >= 50
+                    ? "os dados sugerem que a maior parte da perda é gordura"
+                    : "os dados sugerem uma fatia relevante de massa magra na perda"}
+                </strong>{" "}
+                — a partir de {COMP_CONFIDENT_SAMPLE} medidas o app arrisca um número.
+              </span>
+            </div>
+          ) : (
           <>
             <div className="flex-row" style={{ alignItems: "baseline" }}>
               <span style={{ fontSize: ".85rem", color: "var(--t2)" }}>Ao chegar em <span className="num">{goal}kg</span>, projeção de</span>
@@ -95,10 +134,11 @@ export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS })
                   : trend.projection.fatShare != null
                   ? "Uma fatia relevante da perda projetada é massa magra. Mais proteína e treino de força ajudam a preservar músculo. "
                   : ""}
-                Baseado em {trend.projection.sample} medidas de cintura. Projeção grosseira — quanto mais você medir a cintura, mais precisa fica.
+                Estimativa baseada em {trend.projection.sample} medidas de cintura — quanto mais você medir, mais precisa fica. Trate o número como direção, não como meta exata.
               </span>
             </div>
           </>
+          )
         ) : (
           <div style={{ display: "flex", gap: 6, fontSize: ".8rem", color: "var(--t3)", lineHeight: 1.5 }}>
             <Ruler size={14} style={{ flexShrink: 0, marginTop: 2 }} />

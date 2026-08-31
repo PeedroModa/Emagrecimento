@@ -27,7 +27,7 @@ function StatChip({ icon, label, value }) {
 
 export default function Hoje() {
   const { user } = useAuth();
-  const { weighIns, loading, error, retry, addOrReplace, importMerge } = useWeighIns();
+  const { weighIns, loading, error, retry, addOrReplace, importMerge, setContextTags, update } = useWeighIns();
   const { settings, save } = useSettings();
   const { toast, show } = useToast();
   const [confirm, setConfirm] = useState(null);
@@ -52,6 +52,19 @@ export default function Hoje() {
   const signalRead = useMemo(() => computeSignalRead(sorted), [sorted]);
   const lastChange = useMemo(() => computeLastChange(sorted), [sorted]);
   const trend = useMemo(() => computeTrend(sorted, goal, settings.height_cm), [sorted, goal, settings.height_cm]);
+
+  const showTagPrompt = signalRead.status === "ok" && signalRead.absZ >= 1 && last?.context_tags === null;
+
+  async function handleSaveContext(tags, note) {
+    const { error: err } = await setContextTags(last.id, tags);
+    if (err) { show(err, "error"); return; }
+    if (note?.trim()) await update(last.id, { ...last, note: note.trim().slice(0, 80) }, user.id);
+    show("Contexto salvo.");
+  }
+
+  async function handleSkipContext() {
+    await setContextTags(last.id, []);
+  }
 
   async function doSave(entry) {
     setSaving(true);
@@ -193,7 +206,10 @@ export default function Hoje() {
         <WeighForm onSubmit={handleSubmit} saving={saving} />
       </div>
 
-      <SignalCard signalRead={signalRead} />
+      <SignalCard
+        signalRead={signalRead} showTagPrompt={showTagPrompt}
+        onSaveContext={handleSaveContext} onSkipContext={handleSkipContext}
+      />
       <LastChangeCard lastChange={lastChange} />
 
       {!hasWeights && (

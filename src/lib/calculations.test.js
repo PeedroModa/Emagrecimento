@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   navyBodyFat, linearSlope, bmi, bmiCategory, computeRecords, computeSeries, daysBetween,
   computeTrend, computeSignalRead, computeLastChange, computeCalories, computeMacros,
-  computeSimulator, rateStatus, activityFactor, ageFromBirthDate, isValidBirthDate,
+  computeSimulator, rateStatus, activityFactor, ageFromBirthDate, isValidBirthDate, trendRateChange,
   AVG_WINDOW_DAYS, TREND_WINDOW_DAYS, TREND_WINDOW_OPTIONS, regressionWindowFor, regressionWeeksFor,
 } from "./calculations.js";
 
@@ -170,6 +170,47 @@ describe("computeTrend — projeção de composição", () => {
     const trend = computeTrend(logs, 90, 175);
     expect(trend.projection).toBeNull();
     expect(trend.compAvailable).toBe(0);
+  });
+});
+
+describe("trendRateChange — detecta virada de categoria sem estado persistido", () => {
+  it("com menos de 3 pesagens, não há comparação possível", () => {
+    const logs = [w("2026-01-01", 100), w("2026-01-08", 99)];
+    expect(trendRateChange(logs, 90, 175)).toBeNull();
+  });
+
+  it("categoria igual antes e depois da pesagem mais recente => null", () => {
+    const logs = [
+      w("2026-01-01", 100), w("2026-01-08", 99.4), w("2026-01-15", 98.8),
+      w("2026-01-22", 98.2), w("2026-01-29", 97.6),
+    ];
+    expect(trendRateChange(logs, 90, 175)).toBeNull();
+  });
+
+  it("categoria muda de 'healthy' para 'below' => retorna from/to", () => {
+    const logs = [
+      w("2026-01-01", 100), w("2026-01-08", 99.3), w("2026-01-15", 98.6),
+      w("2026-01-22", 97.9), w("2026-01-29", 99.5),
+    ];
+    const change = trendRateChange(logs, 90, 175);
+    expect(change).not.toBeNull();
+    expect(change.from.key).toBe("healthy");
+    expect(change.to.key).toBe("below");
+  });
+
+  it("se a tendência 'anterior' não tem pontos suficientes na janela, não é tratado como mudança", () => {
+    // 3 pesagens espaçadas de forma que, ao remover a última, sobra só 1 ponto
+    // dentro da janela padrão (28 dias) contada a partir do novo "fim" da série.
+    const logs = [w("2026-01-01", 100), w("2026-02-10", 97), w("2026-02-11", 96.8)];
+    expect(trendRateChange(logs, 90, 175)).toBeNull();
+  });
+
+  it("usa o mesmo windowDays customizado para a comparação atual e a anterior", () => {
+    const logs = [
+      w("2026-01-01", 100), w("2026-01-08", 99.4), w("2026-01-15", 98.8),
+      w("2026-01-22", 98.2), w("2026-01-29", 97.6),
+    ];
+    expect(trendRateChange(logs, 90, 175, 60)).toBeNull();
   });
 });
 

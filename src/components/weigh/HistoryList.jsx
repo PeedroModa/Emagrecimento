@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pencil, Trash2, Check, X, Weight } from "lucide-react";
 import { fmtDateBR, parseDecimal, todayISO } from "../../lib/calculations.js";
+import { tagById } from "../../lib/contextTags.js";
 import EmptyState from "../ui/EmptyState.jsx";
 
 function EditRow({ entry, onSave, onCancel, saving }) {
@@ -121,7 +122,20 @@ export default function HistoryList({ series, onEdit, onDelete }) {
                     {w.magra != null && <span>{w.magra}kg magra</span>}
                   </div>
                 )}
-                {w.note && <div className="history-note">"{w.note}"</div>}
+                {(w.note || w.context_tags?.length > 0) && (
+                  <div className="history-note" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    {w.context_tags?.slice(0, 2).map((id) => {
+                      const tag = tagById(id);
+                      if (!tag) return null;
+                      return (
+                        <span key={id} className="tag-badge">
+                          <tag.Icon size={12} /> {tag.label}
+                        </span>
+                      );
+                    })}
+                    {w.note && <span>"{w.note}"</span>}
+                  </div>
+                )}
               </>
             )}
           </div>

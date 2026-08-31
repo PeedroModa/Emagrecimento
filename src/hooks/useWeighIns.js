@@ -30,11 +30,14 @@ function fromRow(row) {
   if (row.waist_cm != null) w.waist = +row.waist_cm;
   if (row.neck_cm != null) w.neck = +row.neck_cm;
   if (row.note) w.note = row.note;
+  // Sem gate de truthy: null (nunca perguntado) precisa sobreviver distinto
+  // de [] (perguntado, pulou) e de um array preenchido.
+  w.context_tags = row.context_tags ?? null;
   return w;
 }
 
 function toRow(entry, userId) {
-  return {
+  const row = {
     user_id: userId,
     date: entry.date,
     weight_kg: entry.weight,
@@ -42,6 +45,11 @@ function toRow(entry, userId) {
     neck_cm: entry.neck ?? null,
     note: entry.note ?? null,
   };
+  // Só inclui a coluna se o entry explicitamente a trouxer — assim editar
+  // peso/cintura/nota de uma pesagem nunca apaga uma tag de contexto já salva
+  // (PostgREST só toca colunas presentes no corpo da requisição).
+  if (entry.context_tags !== undefined) row.context_tags = entry.context_tags;
+  return row;
 }
 
 // Exportada só para teste (mock de supabase.js) — dentro do app, use sempre
@@ -64,6 +72,29 @@ export async function fetchAll() {
     status = "ready";
   }
   notify();
+}
+
+// Patch parcial de context_tags (não passa por toRow/addOrReplace/update,
+// que exigem o entry completo) — mesmo padrão otimista+rollback dos demais
+// mutadores. Exportada só para teste, dentro do app use setContextTags() do hook.
+export async function patchContextTags(id, tags) {
+  const prev = cache;
+  cache = (cache || []).map((w) => (w.id === id ? { ...w, context_tags: tags } : w));
+  notify();
+  const { data, error } = await supabase
+    .from("weigh_ins")
+    .update({ context_tags: tags, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) {
+    cache = prev;
+    notify();
+    return { error: "Não consegui salvar o contexto. Tente de novo." };
+  }
+  cache = cache.map((w) => (w.id === id ? fromRow(data) : w));
+  notify();
+  return { error: null };
 }
 
 // Só para teste (Vitest, mock de supabase.js) — o app nunca deve ler o
@@ -163,6 +194,8 @@ export function useWeighIns() {
     return { error: null };
   }, []);
 
+  const setContextTags = useCallback((id, tags) => patchContextTags(id, tags), []);
+
   return {
     weighIns: cache || [],
     loading: status === "idle" || status === "loading",
@@ -173,5 +206,6 @@ export function useWeighIns() {
     update,
     remove,
     importMerge,
+    setContextTags,
   };
 }
