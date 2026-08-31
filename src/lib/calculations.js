@@ -6,6 +6,12 @@ export const DEFAULT_GOAL = 90;
 export const DEFAULT_BF = 15;
 export const DEFAULT_HEIGHT_CM = 175;
 export const RATE_HEALTHY = [0.4, 1.0]; // kg/semana
+// Domínio do medidor visual de ritmo (TrendCard): de "ganhando peso" a "rápido
+// demais". A seta e a faixa saudável precisam ser calculadas na MESMA escala,
+// senão a seta pode cair visualmente dentro da faixa saudável mesmo quando o
+// ritmo real está fora dela (foi exatamente o bug reportado e corrigido aqui).
+export const TREND_GAUGE_MIN = -0.4;
+export const TREND_GAUGE_MAX = 1.5;
 export const AVG_WINDOW_DAYS = 27; // janela da média móvel (~4 semanas, adequado a pesagem semanal)
 export const TREND_WINDOW_DAYS = 28; // janela da regressão na opção padrão (= 4 semanas cheias)
 
@@ -255,6 +261,13 @@ export function trendRateChange(sortedWeights, goal, heightCm, windowDays = TREN
   const prior = rateStatus(computeTrend(sortedWeights.slice(0, -1), goal, heightCm, windowDays));
   if (!current || !prior || current.key === prior.key) return null;
   return { from: prior, to: current };
+}
+
+// Posição (%) de um ritmo kg/semana no medidor visual do TrendCard, no
+// domínio [TREND_GAUGE_MIN, TREND_GAUGE_MAX], sempre entre 0 e 100.
+export function trendGaugePercent(value) {
+  const span = TREND_GAUGE_MAX - TREND_GAUGE_MIN;
+  return Math.max(0, Math.min(100, ((value - TREND_GAUGE_MIN) / span) * 100));
 }
 
 export function rateStatus(trend) {

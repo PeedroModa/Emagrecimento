@@ -4,6 +4,7 @@ import {
   computeTrend, computeSignalRead, computeLastChange, computeCalories, computeMacros,
   computeSimulator, rateStatus, activityFactor, ageFromBirthDate, isValidBirthDate, trendRateChange,
   AVG_WINDOW_DAYS, TREND_WINDOW_DAYS, TREND_WINDOW_OPTIONS, regressionWindowFor, regressionWeeksFor,
+  RATE_HEALTHY, trendGaugePercent,
 } from "./calculations.js";
 
 function w(date, weight, extra = {}) {
@@ -170,6 +171,30 @@ describe("computeTrend — projeção de composição", () => {
     const trend = computeTrend(logs, 90, 175);
     expect(trend.projection).toBeNull();
     expect(trend.compAvailable).toBe(0);
+  });
+});
+
+describe("trendGaugePercent — seta e faixa saudável do TrendCard na mesma escala", () => {
+  it("um ritmo abaixo do limite saudável cai à esquerda do começo da faixa saudável", () => {
+    // Caso reportado: 0.32 kg/semana (abaixo de RATE_HEALTHY[0]=0.4) precisa
+    // renderizar à esquerda de onde a faixa verde começa — antes desta correção,
+    // a faixa era desenhada em posição fixa (26%-66%) e não batia com a escala
+    // real da seta, fazendo a seta cair visualmente "dentro" da faixa saudável.
+    const markerLeft = trendGaugePercent(0.32);
+    const zoneLeft = trendGaugePercent(RATE_HEALTHY[0]);
+    expect(markerLeft).toBeLessThan(zoneLeft);
+  });
+
+  it("os extremos da faixa saudável mapeiam para os limites de RATE_HEALTHY, não para posições fixas", () => {
+    const zoneLeft = trendGaugePercent(RATE_HEALTHY[0]);
+    const zoneRight = trendGaugePercent(RATE_HEALTHY[1]);
+    expect(zoneLeft).toBeCloseTo(42.1, 1);
+    expect(zoneRight).toBeCloseTo(73.7, 1);
+  });
+
+  it("satura em 0% e 100% fora do domínio do medidor", () => {
+    expect(trendGaugePercent(-10)).toBe(0);
+    expect(trendGaugePercent(10)).toBe(100);
   });
 });
 

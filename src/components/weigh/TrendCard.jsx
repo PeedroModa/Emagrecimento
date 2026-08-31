@@ -1,5 +1,5 @@
 import { TrendingDown, TrendingUp, Minus, AlertTriangle, Info, Ruler } from "lucide-react";
-import { rateStatus, regressionWeeksFor, AVG_WINDOW_DAYS, COMP_CONFIDENT_SAMPLE } from "../../lib/calculations.js";
+import { rateStatus, regressionWeeksFor, AVG_WINDOW_DAYS, COMP_CONFIDENT_SAMPLE, RATE_HEALTHY, trendGaugePercent } from "../../lib/calculations.js";
 import ContextTagPrompt from "./ContextTagPrompt.jsx";
 import { TREND_TAG_IDS } from "../../lib/contextTags.js";
 
@@ -13,7 +13,9 @@ export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS, r
   const semanas = regressionWeeksFor(windowDays);
   const status = rateStatus(trend);
   const Icon = RATE_ICONS[status.key];
-  const markerLeft = Math.max(0, Math.min(100, ((trend.lossPerWeek + 0.4) / 1.9) * 100));
+  const markerLeft = trendGaugePercent(trend.lossPerWeek);
+  const zoneLeft = trendGaugePercent(RATE_HEALTHY[0]);
+  const zoneRight = trendGaugePercent(RATE_HEALTHY[1]);
 
   return (
     <div className="card">
@@ -59,7 +61,7 @@ export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS, r
       {/* faixa de ritmo saudável */}
       <div style={{ marginTop: 14 }}>
         <div className="band-track">
-          <div className="band-zone" style={{ left: "26%", width: "40%", background: "rgba(91,123,140,0.45)" }} />
+          <div className="band-zone" style={{ left: `${zoneLeft}%`, width: `${zoneRight - zoneLeft}%`, background: "rgba(91,123,140,0.45)" }} />
         </div>
         <div className="band-marker-row">
           <div style={{ position: "absolute", left: `${markerLeft}%`, transform: "translateX(-50%)", marginTop: 2 }}>
