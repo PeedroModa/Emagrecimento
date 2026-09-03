@@ -18,6 +18,7 @@ import { useToast, Toast } from "../components/ui/Toast.jsx";
 import InsightFeed from "../components/insights/InsightFeed.jsx";
 import InvestigationsList from "../components/insights/InvestigationsList.jsx";
 import SinceLastVisit from "../components/insights/SinceLastVisit.jsx";
+import OscillationBand from "../components/insights/OscillationBand.jsx";
 
 const WEEKDAY_LONG = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
 
@@ -169,12 +170,28 @@ export default function Hoje() {
 
       {hasWeights && (
         <div className="declaration">
-          <div className="declaration-num">
-            <span className="hero-num">{last.weight}</span>
-            <span className="declaration-unit">kg</span>
+          <div className="decl-glow" aria-hidden="true" />
+          <div className="decl-row">
+            <span className="decl-num num">{last.weight}</span>
+            <span className="decl-unit">kg</span>
+            {lastChange && (
+              <span className="decl-delta" style={{ color: signalRead.status === "ok" ? signalRead.color : "var(--t2)" }}>
+                {lastChange.diff > 0 ? "+" : ""}{lastChange.diff}kg desde a pesagem anterior
+              </span>
+            )}
           </div>
+
           {signalRead.status === "ok" && (
-            <p className="declaration-sentence" style={{ color: signalRead.color }}>{signalRead.detail}</p>
+            <>
+              <p className="decl-sentence">{signalRead.detail}</p>
+              <div className="band-wrap">
+                <div className="band-label-row">
+                  <span className="band-title">Sua faixa de oscilação pessoal</span>
+                  <span className="band-value">±{signalRead.noiseBand}kg</span>
+                </div>
+                <OscillationBand z={signalRead.z} noiseBand={signalRead.noiseBand} size="large" />
+              </div>
+            </>
           )}
         </div>
       )}

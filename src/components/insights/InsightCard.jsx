@@ -1,42 +1,58 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import ConfidenceBadge from "../ui/ConfidenceBadge.jsx";
 
-const CONFIDENCE_LABEL = { fato: "Fato", tendencia: "Tendência", estimativa: "Estimativa", hipotese: "Hipótese" };
+function Evidence({ items, open, onToggle }) {
+  if (!items?.length) return null;
+  return (
+    <>
+      <button type="button" className="evidence-toggle" onClick={onToggle} aria-expanded={open}>
+        {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        {open ? "ocultar prova" : "ver prova"}
+      </button>
+      {open && (
+        <div className="evidence-panel">
+          {items.map((e, i) => (
+            <div className="evidence-line" key={i}>
+              <span className="k">{e.label}</span>
+              <span className="v">{e.valor}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
 
+// A descoberta mais relevante do feed ganha tratamento editorial — título
+// grande, sem moldura, como um "momento" — não mais um card na pilha. As
+// demais formam uma lista mais compacta, mas nunca voltam a ser
+// pilulazinhas cinzas indistinguíveis: o selo de confiança carrega
+// identidade visual própria (ver ConfidenceBadge).
 export default function InsightCard({ insight, onDismiss, highlight = false }) {
   const [open, setOpen] = useState(false);
-  return (
-    <div className="insight-card">
-      <div className="insight-head">
-        <h3 className="insight-title" style={highlight ? { fontSize: "1.35rem" } : undefined}>{insight.titulo}</h3>
-        <span className={`insight-badge insight-badge-${insight.confianca}`}>{CONFIDENCE_LABEL[insight.confianca]}</span>
+
+  if (highlight) {
+    return (
+      <div className="insight-primary">
+        <ConfidenceBadge confianca={insight.confianca} />
+        <h3>{insight.titulo}</h3>
+        <p>{insight.corpo}</p>
+        <Evidence items={insight.evidencia} open={open} onToggle={() => setOpen((v) => !v)} />
+        {onDismiss && <button type="button" className="insight-dismiss" onClick={() => onDismiss(insight)}>dispensar</button>}
       </div>
-      <p className="insight-body">{insight.corpo}</p>
+    );
+  }
 
-      {insight.evidencia?.length > 0 && (
-        <>
-          <button type="button" className="insight-evidence-toggle" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-            {open ? <ChevronUp size={13} style={{ verticalAlign: "-2px" }} /> : <ChevronDown size={13} style={{ verticalAlign: "-2px" }} />}
-            {" "}{open ? "ocultar prova" : "ver prova"}
-          </button>
-          {open && (
-            <div className="insight-evidence">
-              {insight.evidencia.map((e, i) => (
-                <div className="insight-evidence-row" key={i}>
-                  <span>{e.label}</span>
-                  <span>{e.valor}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {onDismiss && (
-        <button type="button" className="insight-dismiss" onClick={() => onDismiss(insight)}>
-          dispensar
-        </button>
-      )}
+  return (
+    <div className="insight-row">
+      <ConfidenceBadge confianca={insight.confianca} />
+      <div className="insight-body">
+        <h4>{insight.titulo}</h4>
+        <p>{insight.corpo}</p>
+        <Evidence items={insight.evidencia} open={open} onToggle={() => setOpen((v) => !v)} />
+        {onDismiss && <button type="button" className="insight-dismiss" onClick={() => onDismiss(insight)}>dispensar</button>}
+      </div>
     </div>
   );
 }
