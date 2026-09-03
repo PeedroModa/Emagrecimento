@@ -451,6 +451,77 @@ button:disabled { cursor: default; opacity: .55; }
 .modal-box p { font-size: .88rem; color: var(--t2); line-height: 1.55; margin-bottom: 1.1rem; }
 .modal-actions { display: flex; gap: .6rem; justify-content: flex-end; flex-wrap: wrap; }
 
+/* ── V2: declaração do dia (Hoje) ── */
+.declaration { margin-bottom: 1.5rem; }
+.declaration-date {
+  font-family: var(--font-condensed); font-size: .78rem; color: var(--t3);
+  letter-spacing: .12em; text-transform: uppercase; margin-bottom: .35rem;
+}
+.declaration-num { display: flex; align-items: baseline; gap: .5rem; }
+.declaration-unit { font-family: var(--font-condensed); font-size: 1rem; color: var(--t2); }
+.declaration-sentence {
+  font-family: var(--font-body); font-size: 1rem; line-height: 1.5;
+  margin-top: .5rem; max-width: 560px;
+}
+
+/* ── V2: desde sua última visita ── */
+.since-visit {
+  font-family: var(--font-condensed); font-size: .85rem; color: var(--t2);
+  padding: .6rem 0; margin-bottom: 1rem; letter-spacing: .02em;
+}
+.since-visit strong { color: var(--t1); font-family: var(--font-mono); font-weight: 600; }
+
+/* ── V2: feed de descobertas ── */
+.insight-feed { margin-bottom: 1.5rem; }
+.insight-card {
+  padding: 1.1rem 0; border-bottom: 1px solid var(--bdr-soft);
+}
+.insight-card:last-child { border-bottom: none; }
+.insight-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; margin-bottom: .4rem; }
+.insight-title {
+  font-family: var(--font-display); font-size: 1.15rem; letter-spacing: .02em;
+  color: var(--t1); line-height: 1.25;
+}
+.insight-body { font-size: .89rem; color: var(--t2); line-height: 1.55; max-width: 620px; }
+.insight-badge {
+  flex-shrink: 0; font-family: var(--font-condensed); font-size: .66rem; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; padding: .2rem .55rem; border-radius: 999px;
+  white-space: nowrap;
+}
+.insight-badge-fato { background: rgba(91,123,140,.15); color: var(--good); }
+.insight-badge-tendencia { background: rgba(91,123,140,.10); color: #7A93A1; }
+.insight-badge-estimativa { background: rgba(201,162,75,.12); color: var(--warn); }
+.insight-badge-hipotese { background: var(--hover); color: var(--t3); }
+.insight-evidence-toggle {
+  background: none; border: none; color: var(--t3); font-size: .78rem;
+  font-family: var(--font-condensed); letter-spacing: .04em; padding: .4rem 0 0; cursor: pointer;
+}
+.insight-evidence-toggle:hover { color: var(--t2); }
+.insight-evidence { margin-top: .6rem; display: grid; gap: .3rem; }
+.insight-evidence-row {
+  display: flex; justify-content: space-between; gap: 1rem; font-size: .78rem;
+  font-family: var(--font-mono); color: var(--t2); border-top: 1px dashed var(--bdr-soft); padding-top: .3rem;
+}
+.insight-evidence-row span:first-child { font-family: var(--font-condensed); color: var(--t3); text-transform: uppercase; letter-spacing: .04em; font-size: .72rem; }
+.insight-dismiss {
+  background: none; border: none; color: var(--t3); font-size: .74rem;
+  font-family: var(--font-condensed); letter-spacing: .04em; margin-top: .5rem; cursor: pointer;
+}
+.insight-dismiss:hover { color: var(--t1); }
+
+/* ── V2: investigações abertas ── */
+.investigations { margin-bottom: 1.5rem; }
+.investigation-item { margin-bottom: 1rem; }
+.investigation-item:last-child { margin-bottom: 0; }
+.investigation-title {
+  font-family: var(--font-condensed); font-size: .88rem; font-weight: 600;
+  color: var(--t1); letter-spacing: .02em; margin-bottom: .2rem;
+}
+.investigation-desc { font-size: .8rem; color: var(--t3); line-height: 1.45; margin-bottom: .45rem; max-width: 560px; }
+.investigation-track { height: 6px; border-radius: 3px; background: var(--card2); overflow: hidden; margin-bottom: .3rem; }
+.investigation-fill { height: 100%; border-radius: 3px; background: var(--good); transition: width .4s ease; }
+.investigation-progress { font-family: var(--font-mono); font-size: .72rem; color: var(--t3); }
+
 /* responsive tweaks */
 @media (max-width: 600px) {
   .page-title { font-size: 1.6rem; }

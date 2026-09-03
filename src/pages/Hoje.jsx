@@ -1,11 +1,12 @@
-import { useMemo, useState, useRef } from "react";
-import { Weight, Target, Ruler, Upload } from "lucide-react";
+import { useMemo, useState, useRef, useCallback } from "react";
+import { Weight, Upload } from "lucide-react";
 import { useAuth } from "../hooks/useAuth.js";
 import { useWeighIns } from "../hooks/useWeighIns.js";
 import { useSettings } from "../hooks/useSettings.js";
-import {
-  computeSignalRead, computeLastChange, computeTrend, navyBodyFat, bmi, bmiCategory, fmtDateBR,
-} from "../lib/calculations.js";
+import { useAppState } from "../hooks/useAppState.js";
+import { useInsightState } from "../hooks/useInsightState.js";
+import { computeSignalRead, computeLastChange, fmtDateBR, todayISO } from "../lib/calculations.js";
+import { buildInsightContext, runInsights, rankInsights, computeInvestigations } from "../lib/insights/index.js";
 import { parseImportJSON } from "../lib/backup.js";
 import WeighForm from "../components/weigh/WeighForm.jsx";
 import SignalCard from "../components/weigh/SignalCard.jsx";
@@ -14,15 +15,16 @@ import SectionHeader from "../components/layout/SectionHeader.jsx";
 import ConfirmModal from "../components/ui/ConfirmModal.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 import { useToast, Toast } from "../components/ui/Toast.jsx";
+import InsightFeed from "../components/insights/InsightFeed.jsx";
+import InvestigationsList from "../components/insights/InvestigationsList.jsx";
+import SinceLastVisit from "../components/insights/SinceLastVisit.jsx";
 
-function StatChip({ icon, label, value }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--t2)", fontSize: ".82rem" }}>
-      {icon}
-      <span className="num" style={{ color: "var(--t1)", fontWeight: 600 }}>{value}</span>
-      <span style={{ fontFamily: "var(--font-condensed)" }}>{label}</span>
-    </div>
-  );
+const WEEKDAY_LONG = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+
+function todayLongLabel() {
+  const iso = todayISO();
+  const d = new Date(`${iso}T00:00:00Z`);
+  return `${WEEKDAY_LONG[d.getUTCDay()]}, ${fmtDateBR(iso)}`;
 }
 
 export default function Hoje() {
@@ -30,6 +32,8 @@ export default function Hoje() {
   const { weighIns, loading, error, retry, addOrReplace, importMerge, setContextTags, update } = useWeighIns();
   const { settings, save } = useSettings();
   const { toast, show } = useToast();
+  const { previousVisitAt } = useAppState(user?.id);
+  const { statesByKey, markSeen, dismiss } = useInsightState(user?.id);
   const [confirm, setConfirm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -37,21 +41,26 @@ export default function Hoje() {
 
   const sorted = weighIns; // já vem ordenado por data
   const hasWeights = sorted.length > 0;
-  const goal = settings.goal_kg;
-  const startWeight = sorted[0]?.weight ?? null;
   const last = sorted[sorted.length - 1];
-  const currentWeight = last?.weight ?? null;
-  const totalLost = hasWeights ? +(startWeight - currentWeight).toFixed(1) : null;
-  const totalToLose = hasWeights ? startWeight - goal : null;
-  const progressPct = hasWeights && totalToLose > 0 ? Math.max(0, Math.min(100, (totalLost / totalToLose) * 100)) : 0;
-
-  const bfNow = last ? navyBodyFat(last.waist, last.neck, settings.height_cm) : null;
-  const bmiNow = hasWeights ? bmi(currentWeight, settings.height_cm) : null;
-  const bmiCat = bmiCategory(bmiNow);
 
   const signalRead = useMemo(() => computeSignalRead(sorted), [sorted]);
   const lastChange = useMemo(() => computeLastChange(sorted), [sorted]);
-  const trend = useMemo(() => computeTrend(sorted, goal, settings.height_cm), [sorted, goal, settings.height_cm]);
+
+  const insightCtx = useMemo(
+    () => buildInsightContext({ weighIns: sorted, settings, today: todayISO() }),
+    [sorted, settings]
+  );
+  const investigations = useMemo(() => computeInvestigations(insightCtx), [insightCtx]);
+  const rankedInsights = useMemo(() => {
+    const fired = runInsights(insightCtx);
+    return rankInsights(fired, statesByKey, { limit: 5 });
+  }, [insightCtx, statesByKey]);
+
+  const handleSeen = useCallback((insights) => markSeen(insights), [markSeen]);
+  const handleDismiss = useCallback(async (insight) => {
+    const { error: err } = await dismiss(insight);
+    if (err) show(err, "error");
+  }, [dismiss, show]);
 
   const showTagPrompt = signalRead.status === "ok" && signalRead.absZ >= 1 && last?.context_tags === null;
 
@@ -99,19 +108,19 @@ export default function Hoje() {
     reader.onload = async () => {
       const result = parseImportJSON(reader.result);
       if (result.error) { show(result.error, "error"); return; }
+      const s = result.settings;
+      const parts = [];
+      if (s.goal_kg) parts.push(`meta ${s.goal_kg}kg`);
+      if (s.bf_target) parts.push(`alvo de ${s.bf_target}% de gordura`);
+      const hasMoreProfile = Object.keys(s).some((k) => k !== "goal_kg" && k !== "bf_target");
       setConfirm({
         title: "Importar dados do painel antigo?",
-        message: `Encontrei ${result.logs.length} pesagens válidas no arquivo${result.goal ? `, meta ${result.goal}kg` : ""}${result.bfTarget ? ` e alvo de ${result.bfTarget}% de gordura` : ""}. Importar tudo agora?`,
+        message: `Encontrei ${result.logs.length} pesagens válidas no arquivo${parts.length ? `, ${parts.join(" e ")}` : ""}${hasMoreProfile ? " e outras configurações de perfil" : ""}. Importar tudo agora?`,
         onConfirm: async () => {
           setConfirm(null);
           setImporting(true);
           const { error: err } = await importMerge(result.logs, user.id);
-          if (!err && (result.goal || result.bfTarget)) {
-            save({
-              ...(result.goal ? { goal_kg: result.goal } : {}),
-              ...(result.bfTarget ? { bf_target: result.bfTarget } : {}),
-            }, user.id);
-          }
+          if (!err && Object.keys(s).length) save(s, user.id);
           setImporting(false);
           if (err) show(err, "error");
           else show(`${result.logs.length} pesagens importadas.`);
@@ -129,7 +138,7 @@ export default function Hoje() {
           <h1 className="page-title">Hoje</h1>
           <p className="page-sub">carregando suas pesagens...</p>
         </div>
-        <div className="skeleton" style={{ height: 180, marginBottom: 16 }} />
+        <div className="skeleton" style={{ height: 120, marginBottom: 16 }} />
         <div className="skeleton" style={{ height: 120 }} />
       </div>
     );
@@ -154,41 +163,30 @@ export default function Hoje() {
       <div className="page-hdr">
         <h1 className="page-title">Hoje</h1>
         <p className="page-sub">
-          {hasWeights
-            ? <>{startWeight} kg → <span className="num">{goal} kg</span> · {settings.bf_target}% gordura</>
-            : "registre sua primeira pesagem para começar"}
+          {hasWeights ? todayLongLabel() : "registre sua primeira pesagem para começar"}
         </p>
       </div>
 
-      {/* Hero: medidor + progresso */}
-      <div className="flex-row" style={{ gap: 28, marginBottom: 24 }}>
-        <div className="gauge">
-          <div className="hero-num">{hasWeights ? currentWeight : "--"}</div>
-          <div style={{ fontSize: ".72rem", color: "var(--t2)", marginTop: 4, letterSpacing: ".08em", fontFamily: "var(--font-condensed)" }}>KG ATUAL</div>
-          {bfNow != null && <div className="num" style={{ fontSize: ".72rem", color: "var(--good)", marginTop: 6 }}>~{bfNow}% gordura</div>}
+      {hasWeights && (
+        <div className="declaration">
+          <div className="declaration-num">
+            <span className="hero-num">{last.weight}</span>
+            <span className="declaration-unit">kg</span>
+          </div>
+          {signalRead.status === "ok" && (
+            <p className="declaration-sentence" style={{ color: signalRead.color }}>{signalRead.detail}</p>
+          )}
         </div>
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".82rem", color: "var(--t2)", marginBottom: 6 }}>
-            <span>{!hasWeights ? "--" : totalLost >= 0 ? `${totalLost} kg perdidos` : `${Math.abs(totalLost)} kg acima do início`}</span>
-            <span>{!hasWeights ? "--" : totalToLose > 0 ? `${Math.max(0, +(currentWeight - goal).toFixed(1))} kg até a meta` : "meta atingida"}</span>
-          </div>
-          <div className="goal-track">
-            <div className="goal-fill" style={{ width: `${hasWeights ? progressPct : 0}%` }} />
-          </div>
-          <div className="flex-row" style={{ gap: 18, marginTop: 16 }}>
-            <StatChip icon={<Weight size={14} />} label="pesagens" value={sorted.length} />
-            {trend && <StatChip icon={<Target size={14} />} label="kg/sem" value={trend.lossPerWeek > 0 ? `-${trend.lossPerWeek}` : `+${Math.abs(trend.lossPerWeek)}`} />}
-            {bmiNow != null && <StatChip icon={<Ruler size={14} />} label={`IMC · ${bmiCat.label}`} value={bmiNow} />}
-          </div>
-        </div>
-      </div>
+      )}
+
+      <SinceLastVisit previousVisitAt={previousVisitAt} weighIns={sorted} />
 
       {/* Onboarding de migração: primeiro acesso com banco vazio */}
       {!hasWeights && (
         <div className="card" style={{ borderLeft: "3px solid var(--good)" }}>
           <div className="card-label">Vindo do painel antigo?</div>
           <p style={{ fontSize: ".87rem", color: "var(--t2)", lineHeight: 1.55, marginBottom: 12 }}>
-            Se você exportou o JSON do painel no Claude, importe aqui e todo o histórico, a meta e o alvo de gordura entram de uma vez.
+            Se você exportou o JSON do painel no Claude, importe aqui e todo o histórico, a meta e o perfil entram de uma vez.
           </p>
           <button className="btn-secondary" disabled={importing} onClick={() => fileRef.current?.click()}>
             <Upload size={15} /> {importing ? "Importando..." : "Importar dados do painel antigo"}
@@ -202,9 +200,12 @@ export default function Hoje() {
 
       {/* Registrar pesagem */}
       <div className="card">
-        <SectionHeader title="Registrar pesagem" subtitle="uma pesagem por data — sábado é o ritual" />
+        <SectionHeader title="Registrar pesagem" subtitle="uma pesagem por dia, de manhã — quanto mais denso, mais preciso" />
         <WeighForm onSubmit={handleSubmit} saving={saving} />
       </div>
+
+      <InsightFeed insights={rankedInsights} onDismiss={handleDismiss} onSeen={handleSeen} />
+      <InvestigationsList items={investigations} />
 
       <SignalCard
         signalRead={signalRead} showTagPrompt={showTagPrompt}

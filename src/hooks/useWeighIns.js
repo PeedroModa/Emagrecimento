@@ -30,6 +30,7 @@ function fromRow(row) {
   if (row.waist_cm != null) w.waist = +row.waist_cm;
   if (row.neck_cm != null) w.neck = +row.neck_cm;
   if (row.note) w.note = row.note;
+  if (row.created_at) w.created_at = row.created_at;
   // Sem gate de truthy: null (nunca perguntado) precisa sobreviver distinto
   // de [] (perguntado, pulou) e de um array preenchido.
   w.context_tags = row.context_tags ?? null;

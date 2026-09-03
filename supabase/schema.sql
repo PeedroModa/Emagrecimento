@@ -20,6 +20,19 @@ create table if not exists weigh_ins (
 
 create index if not exists weigh_ins_user_date_idx on weigh_ins (user_id, date desc);
 
+-- updated_at automático: sem isso, substituir uma pesagem via upsert
+-- deixa o timestamp congelado no insert original (o cliente não lista
+-- a coluna no onConflict), o que cega o feed de "o que mudou".
+create or replace function set_updated_at() returns trigger
+language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
+
+create trigger weigh_ins_touch before update on weigh_ins
+  for each row execute function set_updated_at();
+
 -- Configurações do usuário (metas, perfil físico, macros)
 create table if not exists user_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -39,6 +52,39 @@ create table if not exists user_settings (
   updated_at timestamptz default now()
 );
 
+-- Estado de visita (V2): quando foi a penúltima vez que o usuário abriu
+-- o app, para o feed de descobertas comparar "o que mudou desde então".
+-- Duas colunas de visita — se houvesse só uma, gravá-la na abertura
+-- apagaria o próprio delta que o feed precisa mostrar.
+create table if not exists user_app_state (
+  user_id           uuid primary key references auth.users(id) on delete cascade,
+  last_visit_at     timestamptz,
+  previous_visit_at timestamptz,
+  feed_seen_at      timestamptz,
+  updated_at        timestamptz not null default now()
+);
+
+create trigger user_app_state_touch before update on user_app_state
+  for each row execute function set_updated_at();
+
+-- Estado do feed de descobertas (V2): o que já foi visto/dispensado.
+-- insight_key = "<regra>:<escopo>", não só o id da regra — senão
+-- dispensar "platô" uma vez silenciaria platôs para sempre.
+create table if not exists insight_state (
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  insight_key   text not null,
+  rule_id       text not null,
+  rule_version  int  not null default 1,
+  status        text not null default 'seen' check (status in ('seen','dismissed','pinned')),
+  payload_hash  text,
+  first_seen_at timestamptz not null default now(),
+  last_seen_at  timestamptz not null default now(),
+  dismissed_at  timestamptz,
+  primary key (user_id, insight_key)
+);
+
+create index if not exists insight_state_user_rule_idx on insight_state (user_id, rule_id);
+
 -- ============================================================
 -- Row Level Security: cada usuário só enxerga os próprios dados.
 -- A segurança fica no banco, não na interface.
@@ -46,6 +92,8 @@ create table if not exists user_settings (
 
 alter table weigh_ins enable row level security;
 alter table user_settings enable row level security;
+alter table user_app_state enable row level security;
+alter table insight_state enable row level security;
 
 -- weigh_ins
 create policy "weigh_ins_select_own" on weigh_ins
@@ -71,4 +119,30 @@ create policy "user_settings_update_own" on user_settings
   for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "user_settings_delete_own" on user_settings
+  for delete using (auth.uid() = user_id);
+
+-- user_app_state
+create policy "user_app_state_select_own" on user_app_state
+  for select using (auth.uid() = user_id);
+
+create policy "user_app_state_insert_own" on user_app_state
+  for insert with check (auth.uid() = user_id);
+
+create policy "user_app_state_update_own" on user_app_state
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "user_app_state_delete_own" on user_app_state
+  for delete using (auth.uid() = user_id);
+
+-- insight_state
+create policy "insight_state_select_own" on insight_state
+  for select using (auth.uid() = user_id);
+
+create policy "insight_state_insert_own" on insight_state
+  for insert with check (auth.uid() = user_id);
+
+create policy "insight_state_update_own" on insight_state
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "insight_state_delete_own" on insight_state
   for delete using (auth.uid() = user_id);

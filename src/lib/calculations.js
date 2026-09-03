@@ -1,6 +1,12 @@
 // Funções puras de negócio, extraídas de painel-peso_2.jsx SEM alteração de fórmulas ou constantes.
 // Único desvio estrutural: HEIGHT_CM deixa de ser constante fixa e passa a ser parâmetro
 // (agora vem de user_settings), pois a Fase 2 tornou altura/idade/sexo configuráveis.
+//
+// V2: computeSeries e computeSignalRead passaram a delegar a matemática de
+// regressão/dispersão para src/lib/stats.js — ver comentários nas próprias
+// funções para o que mudou (janela adaptativa, banda normalizada por gap).
+
+import { ols, normalizedDeltas, noiseBand as robustNoiseBand, zScore } from "./stats.js";
 
 export const DEFAULT_GOAL = 90;
 export const DEFAULT_BF = 15;
@@ -12,7 +18,11 @@ export const RATE_HEALTHY = [0.4, 1.0]; // kg/semana
 // ritmo real está fora dela (foi exatamente o bug reportado e corrigido aqui).
 export const TREND_GAUGE_MIN = -0.4;
 export const TREND_GAUGE_MAX = 1.5;
-export const AVG_WINDOW_DAYS = 27; // janela da média móvel (~4 semanas, adequado a pesagem semanal)
+export const AVG_WINDOW_DAYS = 27; // janela da média móvel quando os dados ainda são esparsos (regime semanal)
+export const DENSE_WINDOW_DAYS = 7; // janela quando a pesagem já é ~diária
+export const DENSE_MIN_COUNT_IN_WEEK = 5; // nº de pesagens nos últimos 7 dias que caracteriza "regime diário"
+export const NOISE_ROBUST_MIN_N = 5; // nº mínimo de variações anteriores para usar MAD em vez de desvio-padrão
+export const NOISE_MAX_GAP_DAYS = 14; // gaps maiores que isso não entram na banda de ruído (mudança de regime, não oscilação)
 export const TREND_WINDOW_DAYS = 28; // janela da regressão na opção padrão (= 4 semanas cheias)
 
 // Janelas de análise oferecidas ao usuário na Evolução. 27 dias é o padrão e
@@ -72,15 +82,13 @@ export function navyBodyFat(waist, neck, heightCm) {
   return bf > 2 && bf < 70 ? +bf.toFixed(1) : null;
 }
 
-// Regressão linear simples -> inclinação (unidade y por unidade x)
+// Regressão linear simples -> inclinação (unidade y por unidade x).
+// Delega para stats.ols() (mesma fórmula, mesmo caso-limite den===0 -> null);
+// mantida como função separada porque é a única parte do resultado da OLS
+// que o restante do arquivo usa.
 export function linearSlope(points) {
-  const n = points.length;
-  if (n < 2) return null;
-  const mx = points.reduce((s, p) => s + p.x, 0) / n;
-  const my = points.reduce((s, p) => s + p.y, 0) / n;
-  let num = 0, den = 0;
-  for (const p of points) { num += (p.x - mx) * (p.y - my); den += (p.x - mx) ** 2; }
-  return den === 0 ? null : num / den;
+  const r = ols(points);
+  return r ? r.slope : null;
 }
 
 export function bmi(weightKg, heightCm) {
@@ -124,14 +132,29 @@ export function computeRecords(sortedWeights) {
   return { min, max, biggestDrop };
 }
 
-// Série enriquecida: média móvel (janela em dias, padrão 27) + BF% + massa magra/gorda
-// via Navy. A média usa SOMENTE as pesagens reais que caem dentro da janela —
-// nada é interpolado nem preenchido em dias sem pesagem.
-export function computeSeries(sortedWeights, heightCm, avgWindowDays = AVG_WINDOW_DAYS) {
+// Janela adequada à densidade real dos dados ao redor de `w`: 7 dias quando
+// a pesagem já é quase diária (>=5 pesagens nos últimos 7 dias), 27 quando
+// ainda é esparsa (regime semanal, ou histórico antigo). Só entra em ação
+// quando o chamador NÃO fixa uma janela explícita — a Evolução, com seu
+// seletor manual (27/60/90/180/365), sempre fixa uma, e continua se
+// comportando exatamente como antes.
+function adaptiveWindowDays(sortedWeights, w) {
+  const last7 = sortedWeights.filter((o) => {
+    const d = daysBetween(o.date, w.date);
+    return d >= 0 && d <= DENSE_WINDOW_DAYS - 1;
+  });
+  return last7.length >= DENSE_MIN_COUNT_IN_WEEK ? DENSE_WINDOW_DAYS : AVG_WINDOW_DAYS;
+}
+
+// Série enriquecida: média móvel + BF% + massa magra/gorda via Navy. A média
+// usa SOMENTE as pesagens reais que caem dentro da janela — nada é
+// interpolado nem preenchido em dias sem pesagem.
+export function computeSeries(sortedWeights, heightCm, avgWindowDays) {
   return sortedWeights.map((w, i) => {
+    const windowDays = avgWindowDays ?? adaptiveWindowDays(sortedWeights, w);
     const win = sortedWeights.filter((o) => {
       const d = daysBetween(o.date, w.date);
-      return d >= 0 && d <= avgWindowDays;
+      return d >= 0 && d <= windowDays;
     });
     const media = win.length >= 2
       ? +(win.reduce((s, o) => s + o.weight, 0) / win.length).toFixed(2)
@@ -139,7 +162,7 @@ export function computeSeries(sortedWeights, heightCm, avgWindowDays = AVG_WINDO
     const bf = navyBodyFat(w.waist, w.neck, heightCm);
     const gordura = bf != null ? +(w.weight * bf / 100).toFixed(1) : null;
     const magra = bf != null ? +(w.weight - gordura).toFixed(1) : null;
-    return { ...w, idx: i, label: fmtDateBR(w.date), peso: w.weight, media, bf, gordura, magra };
+    return { ...w, idx: i, label: fmtDateBR(w.date), peso: w.weight, media, bf, gordura, magra, avgWindowDays: windowDays };
   });
 }
 
@@ -199,31 +222,43 @@ export function computeTrend(sortedWeights, goal, heightCm, windowDays = TREND_W
   return { perWeek, lossPerWeek, weeksToGoal, sample: pts.length, projection, compAvailable };
 }
 
-// "É real ou ruído?" — compara a variação desta semana contra a variabilidade histórica
-// DO PRÓPRIO usuário (desvio-padrão das variações entre pesagens ANTERIORES, piso 0.2kg).
+// "É real ou ruído?" — compara a variação mais recente contra a variabilidade
+// histórica DO PRÓPRIO usuário.
+//
+// V2: os deltas são normalizados por √intervalo (stats.normalizedDeltas) antes
+// de entrar na banda — sem isso, um delta de 7 dias (regime semanal antigo) e
+// um de 1 dia (regime diário novo) pesariam o mesmo, inflando ou encolhendo a
+// banda dependendo de qual regime domina o histórico no momento. A banda usa
+// MAD (stats.noiseBand) só a partir de NOISE_ROBUST_MIN_N variações prévias —
+// com menos que isso o desvio-padrão simples é mais estável; e o piso nunca
+// passa por `||` (um desvio quase-zero não pode "passar" por ser truthy e
+// depois virar 0.00 num arredondamento, produzindo z = Infinity).
 export function computeSignalRead(sortedWeights) {
   if (sortedWeights.length < 4) {
     return { status: "insufficient", need: 4 - sortedWeights.length, count: sortedWeights.length };
   }
-  const deltas = [];
-  for (let i = 1; i < sortedWeights.length; i++) {
-    deltas.push(sortedWeights[i].weight - sortedWeights[i - 1].weight);
+  const points = sortedWeights.map((w) => ({ t: daysBetween(sortedWeights[0].date, w.date), v: w.weight }));
+  const { deltas } = normalizedDeltas(points, { maxGap: NOISE_MAX_GAP_DAYS });
+  if (deltas.length < 3) {
+    return { status: "insufficient", need: Math.max(1, 4 - sortedWeights.length), count: sortedWeights.length };
   }
-  const lastDelta = deltas[deltas.length - 1];
+  const last = deltas[deltas.length - 1];
   const prior = deltas.slice(0, -1);
-  const mean = prior.reduce((s, d) => s + d, 0) / prior.length;
-  const variance = prior.reduce((s, d) => s + (d - mean) ** 2, 0) / prior.length;
-  const sd = Math.sqrt(variance);
-  const recentTrend = deltas.slice(-3).reduce((s, d) => s + d, 0) / Math.min(3, deltas.length);
-  const noiseBand = +(sd || NOISE_FLOOR).toFixed(2);
-  const z = lastDelta / noiseBand;
+  const band = robustNoiseBand(prior.map((d) => d.scaled), { floor: NOISE_FLOOR, robustMinN: NOISE_ROBUST_MIN_N });
+  const z = zScore(last.scaled, band.band);
   const absZ = Math.abs(z);
+  const lastDelta = +last.raw.toFixed(1);
+  // Banda projetada para o intervalo real do último delta — "±0.5kg" só faz
+  // sentido lado a lado com um "você variou Xkg" que cobre o mesmo período.
+  const noiseBand = +(band.band * Math.sqrt(last.gap)).toFixed(2);
+  const recent = deltas.slice(-3);
+  const recentTrend = +(recent.reduce((s, d) => s + d.raw, 0) / recent.length).toFixed(2);
 
   let verdict, detail, color;
   if (absZ < 1) {
     verdict = "Provavelmente ruído";
     color = "#8B8F92";
-    detail = `Você variou ${Math.abs(lastDelta).toFixed(1)}kg, e seu peso costuma oscilar ±${noiseBand}kg de uma pesagem pra outra só por água, sal e intestino. Ou seja: esse número sozinho não quer dizer que você progrediu ou regrediu. Não comemore nem se preocupe — olhe a tendência das últimas semanas, não este ponto.`;
+    detail = `Você variou ${Math.abs(lastDelta).toFixed(1)}kg, e seu peso costuma oscilar ±${noiseBand}kg nesse intervalo só por água, sal e intestino. Ou seja: esse número sozinho não quer dizer que você progrediu ou regrediu. Não comemore nem se preocupe — olhe a tendência, não este ponto.`;
   } else if (absZ < 2) {
     verdict = lastDelta < 0 ? "Talvez tenha emagrecido" : "Talvez tenha engordado";
     color = lastDelta < 0 ? "#5B7B8C" : "#C9A24B";
@@ -231,12 +266,12 @@ export function computeSignalRead(sortedWeights) {
   } else {
     verdict = lastDelta < 0 ? "Emagreceu de verdade" : "Engordou de verdade";
     color = lastDelta < 0 ? "#5B7B8C" : "#E8552E";
-    detail = `Você ${lastDelta < 0 ? "perdeu" : "ganhou"} ${Math.abs(lastDelta).toFixed(1)}kg, bem além da sua oscilação normal (±${noiseBand}kg). Isso é mudança real de massa, não flutuação de balança. ${lastDelta < 0 ? "Seu plano está funcionando." : "Se não era o esperado, vale revisar a semana."}`;
+    detail = `Você ${lastDelta < 0 ? "perdeu" : "ganhou"} ${Math.abs(lastDelta).toFixed(1)}kg, bem além da sua oscilação normal (±${noiseBand}kg). Isso é mudança real de massa, não flutuação de balança. ${lastDelta < 0 ? "Seu plano está funcionando." : "Se não era o esperado, vale revisar."}`;
   }
 
   return {
-    status: "ok", lastDelta: +lastDelta.toFixed(1), noiseBand, z: +z.toFixed(1), absZ,
-    verdict, detail, color, recentTrend: +recentTrend.toFixed(2),
+    status: "ok", lastDelta, noiseBand, z: +z.toFixed(1), absZ,
+    verdict, detail, color, recentTrend,
     samplePrior: prior.length,
   };
 }

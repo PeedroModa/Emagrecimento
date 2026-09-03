@@ -61,6 +61,14 @@ insert into user_settings (user_id, goal_kg, sex) values
   (current_setting('test.user_a')::uuid, 75, 'M'),
   (current_setting('test.user_b')::uuid, 60, 'F');
 
+insert into user_app_state (user_id, last_visit_at) values
+  (current_setting('test.user_a')::uuid, now()),
+  (current_setting('test.user_b')::uuid, now());
+
+insert into insight_state (user_id, insight_key, rule_id) values
+  (current_setting('test.user_a')::uuid, 'plateau:2026-01-01..2026-01-28', 'plateau'),
+  (current_setting('test.user_b')::uuid, 'plateau:2026-01-01..2026-01-28', 'plateau');
+
 -- ── 2. Canário: prova que a impersonação está realmente ativa ────────────
 -- Com um sub aleatório (de ninguém), a contagem TEM que ser zero nas duas
 -- tabelas. Se não for, "set local role" foi pulado/mal posicionado e todo o
@@ -81,7 +89,15 @@ begin
   if v_count <> 0 then
     raise exception 'CANARY FAILURE: % linhas visíveis em user_settings sem identidade válida — RLS não está sendo aplicado', v_count;
   end if;
-  raise notice 'canário ok — RLS está realmente ativo nas duas tabelas';
+  select count(*) into v_count from user_app_state;
+  if v_count <> 0 then
+    raise exception 'CANARY FAILURE: % linhas visíveis em user_app_state sem identidade válida — RLS não está sendo aplicado', v_count;
+  end if;
+  select count(*) into v_count from insight_state;
+  if v_count <> 0 then
+    raise exception 'CANARY FAILURE: % linhas visíveis em insight_state sem identidade válida — RLS não está sendo aplicado', v_count;
+  end if;
+  raise notice 'canário ok — RLS está realmente ativo em todas as tabelas';
 end $$;
 
 -- ── 3. SELECT: A não vê nada de B, e vice-versa ───────────────────────────
@@ -93,6 +109,12 @@ begin
   end if;
   if exists (select 1 from user_settings where user_id = current_setting('test.user_b')::uuid) then
     raise exception 'ISOLATION FAILURE: A conseguiu ver configurações de B';
+  end if;
+  if exists (select 1 from user_app_state where user_id = current_setting('test.user_b')::uuid) then
+    raise exception 'ISOLATION FAILURE: A conseguiu ver o estado de visita de B';
+  end if;
+  if exists (select 1 from insight_state where user_id = current_setting('test.user_b')::uuid) then
+    raise exception 'ISOLATION FAILURE: A conseguiu ver o estado de insights de B';
   end if;
   if (select count(*) from weigh_ins) <> 2 then
     raise exception 'ISOLATION FAILURE: A não está vendo as próprias 2 pesagens';
@@ -109,6 +131,12 @@ begin
   if exists (select 1 from user_settings where user_id = current_setting('test.user_a')::uuid) then
     raise exception 'ISOLATION FAILURE: B conseguiu ver configurações de A';
   end if;
+  if exists (select 1 from user_app_state where user_id = current_setting('test.user_a')::uuid) then
+    raise exception 'ISOLATION FAILURE: B conseguiu ver o estado de visita de A';
+  end if;
+  if exists (select 1 from insight_state where user_id = current_setting('test.user_a')::uuid) then
+    raise exception 'ISOLATION FAILURE: B conseguiu ver o estado de insights de A';
+  end if;
   raise notice 'ok — B não vê nada de A';
 end $$;
 
@@ -122,6 +150,8 @@ end $$;
 select set_config('request.jwt.claim.sub', current_setting('test.user_a'), true);
 update weigh_ins set weight_kg = 999 where user_id = current_setting('test.user_b')::uuid;
 update user_settings set goal_kg = 999 where user_id = current_setting('test.user_b')::uuid;
+update user_app_state set feed_seen_at = now() where user_id = current_setting('test.user_b')::uuid;
+update insight_state set status = 'dismissed' where user_id = current_setting('test.user_b')::uuid;
 
 reset role;
 do $$
@@ -132,6 +162,12 @@ begin
   if exists (select 1 from user_settings where user_id = current_setting('test.user_b')::uuid and goal_kg = 999) then
     raise exception 'ISOLATION FAILURE: A conseguiu editar as configurações de B';
   end if;
+  if exists (select 1 from user_app_state where user_id = current_setting('test.user_b')::uuid and feed_seen_at is not null) then
+    raise exception 'ISOLATION FAILURE: A conseguiu editar o estado de visita de B';
+  end if;
+  if exists (select 1 from insight_state where user_id = current_setting('test.user_b')::uuid and status = 'dismissed') then
+    raise exception 'ISOLATION FAILURE: A conseguiu editar o estado de insights de B';
+  end if;
   raise notice 'ok — UPDATE de A sobre dados de B não teve efeito nenhum';
 end $$;
 
@@ -139,6 +175,8 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', current_setting('test.user_a'), true);
 delete from weigh_ins where user_id = current_setting('test.user_b')::uuid;
 delete from user_settings where user_id = current_setting('test.user_b')::uuid;
+delete from user_app_state where user_id = current_setting('test.user_b')::uuid;
+delete from insight_state where user_id = current_setting('test.user_b')::uuid;
 
 reset role;
 do $$
@@ -148,6 +186,12 @@ begin
   end if;
   if not exists (select 1 from user_settings where user_id = current_setting('test.user_b')::uuid) then
     raise exception 'ISOLATION FAILURE: A conseguiu apagar as configurações de B';
+  end if;
+  if not exists (select 1 from user_app_state where user_id = current_setting('test.user_b')::uuid) then
+    raise exception 'ISOLATION FAILURE: A conseguiu apagar o estado de visita de B';
+  end if;
+  if not exists (select 1 from insight_state where user_id = current_setting('test.user_b')::uuid) then
+    raise exception 'ISOLATION FAILURE: A conseguiu apagar o estado de insights de B';
   end if;
   raise notice 'ok — DELETE de A sobre dados de B não teve efeito nenhum';
 end $$;
@@ -189,6 +233,39 @@ begin
     raise exception 'ISOLATION FAILURE: A conseguiu criar configurações em nome de C';
   end if;
   raise notice 'ok — INSERT de A em nome de C foi rejeitado pela RLS';
+end $$;
+
+do $$
+declare
+  v_ok boolean := false;
+begin
+  begin
+    insert into user_app_state (user_id, last_visit_at) values (current_setting('test.user_c')::uuid, now());
+    v_ok := true;
+  exception when others then
+    v_ok := false;
+  end;
+  if v_ok then
+    raise exception 'ISOLATION FAILURE: A conseguiu criar estado de visita em nome de C';
+  end if;
+  raise notice 'ok — INSERT de A em nome de C (user_app_state) foi rejeitado pela RLS';
+end $$;
+
+do $$
+declare
+  v_ok boolean := false;
+begin
+  begin
+    insert into insight_state (user_id, insight_key, rule_id)
+      values (current_setting('test.user_c')::uuid, 'plateau:x', 'plateau');
+    v_ok := true;
+  exception when others then
+    v_ok := false;
+  end;
+  if v_ok then
+    raise exception 'ISOLATION FAILURE: A conseguiu criar estado de insight em nome de C';
+  end if;
+  raise notice 'ok — INSERT de A em nome de C (insight_state) foi rejeitado pela RLS';
 end $$;
 
 -- ── 6. Nada disso fica gravado ────────────────────────────────────────────

@@ -9,10 +9,10 @@ export default function SignalCard({ signalRead, showTagPrompt, onSaveContext, o
     if (signalRead.count < 1) return null;
     return (
       <div className="card">
-        <div className="card-label">Esta semana · É real ou ruído?</div>
+        <div className="card-label">É real ou ruído?</div>
         <p style={{ fontSize: ".88rem", color: "var(--t2)", lineHeight: 1.55 }}>
           Preciso de {signalRead.need} {signalRead.need === 1 ? "pesagem" : "pesagens"} a mais para aprender qual é a sua
-          oscilação normal. A partir daí, digo a cada sábado se a mudança da semana é real ou só flutuação da balança.
+          oscilação normal. A partir daí, digo a cada pesagem se a mudança é real ou só flutuação da balança.
         </p>
       </div>
     );
@@ -22,7 +22,7 @@ export default function SignalCard({ signalRead, showTagPrompt, onSaveContext, o
 
   return (
     <div className="card" style={{ borderLeft: `3px solid ${signalRead.color}` }}>
-      <div className="card-label">Esta semana · É real ou ruído?</div>
+      <div className="card-label">É real ou ruído?</div>
       <div className="flex-row" style={{ alignItems: "baseline", marginBottom: 10 }}>
         <span className="hero-num" style={{ fontSize: "1.7rem", color: signalRead.color }}>{signalRead.verdict}</span>
         <span className="num" style={{ fontSize: ".78rem", color: "var(--t3)" }}>

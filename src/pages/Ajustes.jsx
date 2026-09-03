@@ -77,12 +77,7 @@ export default function Ajustes() {
           setConfirm(null);
           setImporting(true);
           const { error: err } = await importMerge(result.logs, user.id);
-          if (!err && (result.goal || result.bfTarget)) {
-            set({
-              ...(result.goal ? { goal_kg: result.goal } : {}),
-              ...(result.bfTarget ? { bf_target: result.bfTarget } : {}),
-            });
-          }
+          if (!err && Object.keys(result.settings).length) set(result.settings);
           setImporting(false);
           if (err) show(err, "error");
           else show(`${result.logs.length} pesagens importadas.`);

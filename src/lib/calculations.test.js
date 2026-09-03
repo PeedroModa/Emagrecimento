@@ -137,7 +137,42 @@ describe("computeSignalRead — sinal vs. ruído", () => {
       w("2026-01-29", 100.05),
     ];
     const res = computeSignalRead(logs);
-    expect(res.noiseBand).toBe(0.2);
+    // O piso é 0.2kg/√dia; exibido projetado para o intervalo real do
+    // último delta (7 dias): 0.2 * √7 ≈ 0.53kg — "±0.53kg" é o que cabe
+    // comparar lado a lado com uma variação medida numa janela de 7 dias.
+    expect(res.noiseBand).toBeCloseTo(0.2 * Math.sqrt(7), 2);
+  });
+
+  it("desvio quase-zero (não exatamente 0) nunca produz z=Infinity/NaN — o bug corrigido da V1", () => {
+    const logs = [
+      w("2026-01-01", 100.00),
+      w("2026-01-02", 100.10),
+      w("2026-01-03", 100.10),
+      w("2026-01-04", 100.11), // deltas prévios quase idênticos: sd/mad ~0.0047, bem abaixo do piso
+      w("2026-01-05", 100.50), // último delta bem maior — deve ser lido como sinal, não Infinity
+    ];
+    const res = computeSignalRead(logs);
+    expect(Number.isFinite(res.z)).toBe(true);
+    expect(Number.isNaN(res.z)).toBe(false);
+    expect(res.absZ).toBeGreaterThan(0);
+  });
+
+  it("com >= 5 variações anteriores, passa a usar MAD (robusto a outlier) em vez de desvio-padrão", () => {
+    // 5 deltas prévios, um deles bem destoante (outlier no MEIO da janela,
+    // não colado ao último) + um delta final pequeno, típico.
+    const logs = [
+      w("2026-01-01", 100.0),
+      w("2026-01-02", 100.1),  // d1=+0.1
+      w("2026-01-03", 99.9),   // d2=-0.2
+      w("2026-01-04", 102.0),  // d3=+2.1 (outlier isolado)
+      w("2026-01-05", 101.9),  // d4=-0.1
+      w("2026-01-06", 102.0),  // d5=+0.1
+      w("2026-01-07", 101.95), // d6=-0.05 (último — deve ler como ruído)
+    ];
+    const res = computeSignalRead(logs);
+    expect(res.status).toBe("ok");
+    expect(res.absZ).toBeLessThan(1);
+    expect(res.verdict).toBe("Provavelmente ruído");
   });
 });
 
@@ -439,6 +474,11 @@ function weeklyLogs(n, startISO, weightAt) {
   });
 }
 
+function addDays(iso, n) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return new Date(d.getTime() + n * 86400000).toISOString().slice(0, 10);
+}
+
 // Média esperada = só as pesagens reais dentro da janela, sem interpolar nada.
 function expectedAvg(logs, endIdx, windowDays) {
   const end = logs[endIdx].date;
@@ -501,10 +541,19 @@ describe("computeSeries — janelas selecionáveis", () => {
     }
   });
 
-  it("sem janela explícita, continua em 27 dias (padrão do painel)", () => {
-    const series = computeSeries(logs, 175);
+  it("sem janela explícita e com dado esparso (semanal), a janela adaptativa resolve para 27 dias", () => {
+    const series = computeSeries(logs, 175); // `logs` é semanal — nunca atinge a densidade diária
     const explicito = computeSeries(logs, 175, AVG_WINDOW_DAYS);
     expect(series.map((s) => s.media)).toEqual(explicito.map((s) => s.media));
+    expect(series[series.length - 1].avgWindowDays).toBe(27);
+  });
+
+  it("com uma janela explícita (seletor manual da Evolução), a adaptação nunca entra em ação", () => {
+    // mesmo com histórico artificialmente diário (que ativaria a janela de 7
+    // dias por padrão), um windowDays explícito é respeitado à risca
+    const dailyLogs = Array.from({ length: 30 }, (_, i) => w(addDays("2026-01-01", i), 100 - i * 0.05));
+    const series = computeSeries(dailyLogs, 175, 27);
+    expect(series[series.length - 1].avgWindowDays).toBe(27);
   });
 
   it("peso bruto não muda com a janela", () => {
@@ -512,6 +561,24 @@ describe("computeSeries — janelas selecionáveis", () => {
     for (const win of TREND_WINDOW_OPTIONS) {
       expect(computeSeries(logs, 175, win).map((s) => s.peso)).toEqual(base);
     }
+  });
+});
+
+describe("computeSeries — janela adaptativa (V2: pesagem diária)", () => {
+  it("com >= 5 pesagens nos últimos 7 dias, a janela adaptativa vira 7 dias", () => {
+    const daily = Array.from({ length: 20 }, (_, i) => w(addDays("2026-01-01", i), 100 - i * 0.05));
+    const series = computeSeries(daily, 175);
+    const last = series[series.length - 1];
+    expect(last.avgWindowDays).toBe(7);
+    expect(last.media).not.toBeNull();
+  });
+
+  it("histórico semanal seguido de uma virada para diário: a janela muda ponto a ponto, não para a série inteira", () => {
+    const weekly = [w("2026-01-01", 100), w("2026-01-08", 99.5), w("2026-01-15", 99)];
+    const daily = Array.from({ length: 10 }, (_, i) => w(addDays("2026-01-16", i), 99 - i * 0.03));
+    const series = computeSeries([...weekly, ...daily], 175);
+    expect(series[0].avgWindowDays).toBe(27); // início esparso: ainda no regime semanal
+    expect(series[series.length - 1].avgWindowDays).toBe(7); // final denso: já no regime diário
   });
 });
 
