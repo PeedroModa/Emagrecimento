@@ -102,6 +102,32 @@ export function useMeasurements() {
     return { error: null };
   }, []);
 
+  // Edição por id (mesmo padrão de useWeighIns.js) — diferente de
+  // addOrReplace (upsert por data), preserva a linha mesmo se a data mudar,
+  // em vez de arriscar duplicar/deixar órfã uma sessão de medida.
+  const update = useCallback(async (id, entry, userId) => {
+    const prev = cache;
+    cache = (cache || [])
+      .map((m) => (m.id === id ? { id, ...entry } : m))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    notify();
+    const { data, error } = await supabase
+      .from("body_measurements")
+      .update(toRow(entry, userId))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      cache = prev;
+      notify();
+      const isDup = error.code === "23505";
+      return { error: isDup ? "Já existe outra medição nessa data. Edite ou remova a outra primeiro." : "Não consegui salvar a edição. Tente de novo." };
+    }
+    cache = cache.map((m) => (m.id === id ? fromRow(data) : m));
+    notify();
+    return { error: null };
+  }, []);
+
   const remove = useCallback(async (id) => {
     const prev = cache;
     cache = (cache || []).filter((m) => m.id !== id);
@@ -122,6 +148,7 @@ export function useMeasurements() {
     ready: status === "ready",
     retry,
     addOrReplace,
+    update,
     remove,
   };
 }

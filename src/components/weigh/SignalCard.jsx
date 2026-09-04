@@ -1,11 +1,12 @@
 import { Info } from "lucide-react";
 import ContextTagPrompt from "./ContextTagPrompt.jsx";
 import { SIGNAL_TAG_IDS } from "../../lib/contextTags.js";
-import OscillationBand from "../insights/OscillationBand.jsx";
 
-// Suporte/evidência da declaração do dia (a leitura principal já aparece
-// lá em cima) — por isso o cabeçalho fica enxuto: só o veredito, sem
-// repetir o "kg" que a declaração já mostrou.
+// A leitura principal ("é real ou ruído?") já aparece inteira na declaração
+// do dia, lá em cima — número, frase de interpretação e a régua grande.
+// Este card só existe para o que NÃO está lá: o aviso de amostra pequena e
+// o convite a registrar contexto quando a variação foge do normal. Sem
+// nenhum dos dois, o card não tem nada a acrescentar e não renderiza nada.
 export default function SignalCard({ signalRead, showTagPrompt, onSaveContext, onSkipContext }) {
   if (!signalRead) return null;
 
@@ -22,19 +23,13 @@ export default function SignalCard({ signalRead, showTagPrompt, onSaveContext, o
     );
   }
 
+  const showSampleNote = signalRead.samplePrior < 5;
+  if (!showSampleNote && !showTagPrompt) return null;
+
   return (
-    <div className="card noise-card">
-      <div className="noise-hdr">
-        <span className="card-label" style={{ marginBottom: 0 }}>É real ou ruído?</span>
-        <span className="verdict" style={{ color: signalRead.color }}>{signalRead.verdict.toLowerCase()}</span>
-      </div>
-
-      <OscillationBand z={signalRead.z} noiseBand={signalRead.noiseBand} size="mini" />
-
-      <p style={{ fontSize: ".86rem", color: "var(--t2)", lineHeight: 1.55, marginTop: 14 }}>{signalRead.detail}</p>
-
-      {signalRead.samplePrior < 5 && (
-        <div style={{ display: "flex", gap: 6, marginTop: 10, fontSize: ".76rem", color: "var(--t3)", lineHeight: 1.45 }}>
+    <div className="card">
+      {showSampleNote && (
+        <div style={{ display: "flex", gap: 6, fontSize: ".8rem", color: "var(--t3)", lineHeight: 1.45, marginBottom: showTagPrompt ? 12 : 0 }}>
           <Info size={13} style={{ flexShrink: 0, marginTop: 3 }} />
           <span>Baseado em {signalRead.samplePrior} variações anteriores. Quanto mais você pesar, mais afiada fica a leitura da sua oscilação real.</span>
         </div>

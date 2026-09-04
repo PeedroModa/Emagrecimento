@@ -60,10 +60,17 @@ function EditRow({ entry, onSave, onCancel, saving }) {
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function HistoryList({ series, onEdit, onDelete }) {
   const [editingId, setEditingId] = useState(null);
   const [savingId, setSavingId] = useState(null);
+  // Paginação só de exibição — os dados inteiros já estão em memória (sem
+  // nova busca), isto só evita renderizar centenas de linhas de uma vez
+  // com pesagem diária ao longo de meses/anos.
+  const [shown, setShown] = useState(PAGE_SIZE);
   const reversed = [...series].reverse();
+  const visible = reversed.slice(0, shown);
 
   if (series.length === 0) {
     return (
@@ -77,7 +84,7 @@ export default function HistoryList({ series, onEdit, onDelete }) {
 
   return (
     <div>
-      {reversed.map((w, i) => {
+      {visible.map((w, i) => {
         const prev = reversed[i + 1];
         const diff = prev ? +(w.weight - prev.weight).toFixed(1) : null;
         const diffColor = diff == null ? "var(--t2)" : diff < 0 ? "var(--good)" : diff > 0 ? "var(--accent)" : "var(--t2)";
@@ -141,6 +148,14 @@ export default function HistoryList({ series, onEdit, onDelete }) {
           </div>
         );
       })}
+      {shown < reversed.length && (
+        <div style={{ textAlign: "center", marginTop: 12 }}>
+          <button className="btn-secondary" onClick={() => setShown((n) => n + PAGE_SIZE)}>
+            Mostrar mais {Math.min(PAGE_SIZE, reversed.length - shown)}
+            <span style={{ color: "var(--t3)", marginLeft: 6 }}>({reversed.length - shown} restantes)</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

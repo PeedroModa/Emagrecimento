@@ -18,6 +18,7 @@ import Comparator from "../components/weigh/Comparator.jsx";
 import JourneyTimeline from "../components/weigh/JourneyTimeline.jsx";
 import MeasurementForm from "../components/weigh/MeasurementForm.jsx";
 import BodyMap from "../components/weigh/BodyMap.jsx";
+import MeasurementHistoryList from "../components/weigh/MeasurementHistoryList.jsx";
 import SectionHeader from "../components/layout/SectionHeader.jsx";
 import ConfirmModal from "../components/ui/ConfirmModal.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
@@ -32,7 +33,7 @@ export default function Jornada() {
   const { user } = useAuth();
   const { weighIns, loading, error, retry, update, remove, setContextTags } = useWeighIns();
   const { settings } = useSettings();
-  const { measurements, addOrReplace: addOrReplaceMeasurement } = useMeasurements();
+  const { measurements, addOrReplace: addOrReplaceMeasurement, update: updateMeasurement, remove: removeMeasurement } = useMeasurements();
   const { toast, show } = useToast();
   const [confirm, setConfirm] = useState(null);
   const [savingMeasurement, setSavingMeasurement] = useState(false);
@@ -72,6 +73,33 @@ export default function Jornada() {
     if (err) { show(err, "error"); return false; }
     show("Medidas salvas.");
     return true;
+  }
+
+  async function handleEditMeasurement(id, next) {
+    const other = measurements.find((m) => m.date === next.date && m.id !== id);
+    if (other) {
+      show("Já existe outra medição nessa data. Edite ou remova a outra primeiro.", "error");
+      return false;
+    }
+    const { error: err } = await updateMeasurement(id, next, user.id);
+    if (err) { show(err, "error"); return false; }
+    show("Medidas atualizadas.");
+    return true;
+  }
+
+  function handleDeleteMeasurement(m) {
+    setConfirm({
+      title: "Remover medidas?",
+      message: `Remover a medição de ${fmtDateBR(m.date)}? Essa ação não tem desfazer.`,
+      confirmLabel: "Remover",
+      onConfirm: async () => {
+        setConfirm(null);
+        const { error: err } = await removeMeasurement(m.id);
+        if (err) show(err, "error");
+        else show("Medição removida.");
+      },
+      onCancel: () => setConfirm(null),
+    });
   }
 
   async function handleSaveContext(tags, note) {
@@ -192,6 +220,12 @@ export default function Jornada() {
       <div className="card">
         <SectionHeader title="Medidas corporais" subtitle="sessão mensal — cintura, pescoço, quadril, peito, braço, coxa" />
         <MeasurementForm onSubmit={handleSaveMeasurement} saving={savingMeasurement} />
+        {measurements.length > 0 && (
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--bdr-soft)" }}>
+            <div className="small-label" style={{ marginBottom: 10 }}>histórico de medições</div>
+            <MeasurementHistoryList measurements={measurements} onEdit={handleEditMeasurement} onDelete={handleDeleteMeasurement} />
+          </div>
+        )}
       </div>
 
       <div className="card">

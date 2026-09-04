@@ -1,14 +1,22 @@
+// Limitado às pesagens mais recentes — com pesagem diária ao longo de
+// meses/anos, uma barra por pesagem cresceria sem limite (e o gráfico
+// acima já mostra a curva inteira; isto aqui é só um relance rápido do
+// que aconteceu por perto).
+const RECENT_LIMIT = 20;
+
 export default function ProgressionBars({ series, goal }) {
   if (series.length < 1) return null;
-  const vals = series.map((s) => s.peso);
+  const recent = series.slice(-RECENT_LIMIT);
+  const vals = recent.map((s) => s.peso);
   const lo = Math.min(...vals, goal);
   const hi = Math.max(...vals);
   const span = hi - lo || 1;
-  const reversed = [...series].reverse();
+  const reversed = [...recent].reverse();
+  const truncated = series.length > RECENT_LIMIT;
 
   return (
     <div className="card">
-      <div className="card-label">Progressão</div>
+      <div className="card-label">Progressão{truncated ? ` · últimas ${RECENT_LIMIT}` : ""}</div>
       <div>
         {reversed.map((s, i) => {
           const prev = reversed[i + 1];
