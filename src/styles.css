@@ -17,7 +17,11 @@
   /* Texto */
   --t1: #EDEAE2;
   --t2: #8B8F92;
-  --t3: #5A5E60;
+  /* Etapa 7: #5A5E60 original ficava ~2.6:1 contra o fundo (abaixo do
+     mínimo de 4,5:1 do WCAG AA para texto normal) — usado justamente em
+     textos explicativos pequenos, onde contraste maior importa mais.
+     #83898C mantém o mesmo tom frio, na faixa de ~4,6:1. */
+  --t3: #83898C;
 
   /* Semântica */
   --accent: #E8552E;      /* terracota: ganho / alerta / ação primária */
@@ -203,6 +207,7 @@ input[type="number"], input[type="date"], input[type="text"], input[type="email"
   font-family: var(--font-mono);
   font-size: .9rem;
   width: 100%;
+  min-height: 44px; /* Etapa 7: alvo de toque adequado em mobile */
   transition: border-color .15s;
 }
 input[type="text"], input[type="email"] { font-family: var(--font-body); }
@@ -246,22 +251,23 @@ button:disabled { cursor: default; opacity: .55; }
 .btn-secondary:hover:not(:disabled) { border-color: var(--t2); }
 .btn-ghost {
   background: none; border: none; color: var(--t3);
-  font-size: .82rem; padding: .35rem .6rem; border-radius: 6px;
+  font-size: .82rem; padding: .6rem; border-radius: 6px;
   transition: color .15s;
-  min-height: 36px;
+  min-height: 44px; min-width: 44px;
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
 }
 .btn-ghost:hover { color: var(--t1); }
 .btn-danger-ghost { color: var(--t3); }
 .btn-danger-ghost:hover { color: var(--accent); }
 
 .toggle-pill {
-  padding: .35rem .85rem; border-radius: 999px;
+  padding: .55rem .85rem; border-radius: 999px;
   font-family: var(--font-condensed);
   font-size: .82rem; font-weight: 600; letter-spacing: .05em;
   border: 1px solid var(--bdr);
   background: transparent; color: var(--t2);
   transition: all .15s;
-  min-height: 36px;
+  min-height: 44px;
 }
 .toggle-pill.active {
   border-color: var(--accent);
