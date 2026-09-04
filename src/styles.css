@@ -348,7 +348,7 @@ button:disabled { cursor: default; opacity: .55; }
   font-size: .9rem; color: var(--t2); text-align: center; line-height: 1.5;
 }
 
-/* ── Seletor de janela da tendência (Evolução) ── */
+/* ── Seletor de janela da tendência (Jornada) ── */
 .trend-window {
   display: flex; align-items: center; gap: .4rem;
   flex-shrink: 0; margin-bottom: .9rem;
@@ -552,6 +552,31 @@ button:disabled { cursor: default; opacity: .55; }
 .dots { display: flex; gap: 4px; }
 .dot { flex: 1; height: 7px; border-radius: 2px; background: var(--card2); }
 .dot.filled { background: #86A2B3; }
+
+/* ── V2: linha do tempo da jornada (Jornada) ── */
+.timeline { position: relative; padding-left: 1.75rem; }
+.timeline-item { position: relative; padding-bottom: 1.75rem; }
+.timeline-item:last-child { padding-bottom: 0; }
+.timeline-item::before {
+  content: ""; position: absolute; left: -1.375rem; top: .9rem; bottom: -.9rem; width: 1px; background: var(--bdr-soft);
+}
+.timeline-item:last-child::before { display: none; }
+.timeline-dot { position: absolute; left: -1.75rem; top: .25rem; width: 10px; height: 10px; border-radius: 50%; background: var(--bdr); border: 2px solid var(--bg); }
+.timeline-dot.current { background: var(--accent); box-shadow: 0 0 0 3px rgba(232,85,46,.2); }
+.timeline-date { font-family: var(--font-mono); font-size: .72rem; color: var(--t3); margin-bottom: .1rem; }
+.timeline-title { font-family: var(--font-condensed); font-weight: 600; font-size: .92rem; color: var(--t1); }
+.timeline-detail { font-size: .8rem; color: var(--t2); margin-top: .1rem; }
+
+/* ── V2: comparador de momentos (Jornada) ── */
+.cmp-presets { display: flex; gap: .5rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.cmp-row { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+.cmp-col { display: flex; flex-direction: column; gap: .3rem; }
+.cmp-label { font-family: var(--font-condensed); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--t3); }
+.cmp-num { font-family: var(--font-display); font-size: 2rem; color: var(--t1); }
+.cmp-unit { font-family: var(--font-condensed); font-size: .9rem; color: var(--t3); margin-left: .2rem; }
+.cmp-arrow { font-size: 1.4rem; color: var(--t3); }
+.cmp-diff { font-family: var(--font-mono); font-size: 1.1rem; font-weight: 700; margin-left: auto; }
+.cmp-empty { font-size: .85rem; color: var(--t3); }
 
 /* responsive tweaks */
 @media (max-width: 600px) {

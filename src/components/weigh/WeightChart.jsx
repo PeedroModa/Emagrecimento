@@ -1,26 +1,37 @@
 import { useRef, useEffect } from "react";
 import {
-  Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend, Filler,
+  Chart, LineController, LineElement, PointElement, LinearScale, Tooltip, Legend, Filler,
 } from "chart.js";
+import { daysBetween, addDaysISO, fmtDateBR } from "../../lib/calculations.js";
 
-Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend, Filler);
+// V2: eixo X trocou de CategoryScale (pontos igualmente espaçados,
+// independente da data real) para LinearScale com offsets numéricos de dia.
+// Antes, 3 semanas de intervalo ocupavam o mesmo espaço horizontal que 1
+// dia — a inclinação visual da curva contradizia o kg/semana anunciado ao
+// lado, e com pesagem diária as lacunas do regime antigo ficariam invisíveis
+// em vez de aparecerem como o que são. `spanGaps:false` na série de peso
+// torna um buraco real um buraco visível.
+Chart.register(LineController, LineElement, PointElement, LinearScale, Tooltip, Legend, Filler);
 
 export default function WeightChart({ series, goal, windowDays = 27 }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
-    const labels = series.map((s) => s.label);
-    const pesos = series.map((s) => s.peso);
-    const medias = series.map((s) => s.media);
+    if (!canvasRef.current || !series.length) return;
+    const t0 = series[0].date;
+    const toX = (date) => daysBetween(t0, date);
+    const pesos = series.map((s) => ({ x: toX(s.date), y: s.peso }));
+    const medias = series.filter((s) => s.media != null).map((s) => ({ x: toX(s.date), y: s.media }));
+    const lastX = toX(series[series.length - 1].date);
+    const metaLine = [{ x: 0, y: goal }, { x: lastX, y: goal }];
 
     const data = {
-      labels,
       datasets: [
         {
           label: "Peso",
           data: pesos,
+          parsing: false,
           borderColor: "#E8552E",
           backgroundColor: "rgba(232,85,46,0.08)",
           pointBackgroundColor: "#E8552E",
@@ -29,10 +40,12 @@ export default function WeightChart({ series, goal, windowDays = 27 }) {
           borderWidth: 2,
           tension: 0.25,
           fill: true,
+          spanGaps: false,
         },
         {
           label: `Tendência (${windowDays}d)`,
           data: medias,
+          parsing: false,
           borderColor: "#5B7B8C",
           pointRadius: 0,
           borderWidth: 2,
@@ -42,7 +55,8 @@ export default function WeightChart({ series, goal, windowDays = 27 }) {
         },
         {
           label: "Meta",
-          data: labels.map(() => goal),
+          data: metaLine,
+          parsing: false,
           borderColor: "#C9A24B",
           pointRadius: 0,
           borderWidth: 1.5,
@@ -73,14 +87,20 @@ export default function WeightChart({ series, goal, windowDays = 27 }) {
           bodyFont: { family: "'JetBrains Mono', monospace", size: 12 },
           titleFont: { family: "'Barlow Condensed', sans-serif", size: 13 },
           callbacks: {
+            title: (items) => (items.length ? fmtDateBR(addDaysISO(t0, items[0].parsed.x)) : ""),
             label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(1) : "--"} kg`,
           },
         },
       },
       scales: {
         x: {
+          type: "linear",
           grid: { color: "rgba(255,255,255,0.03)" },
-          ticks: { color: "#5A5E60", font: { family: "'JetBrains Mono', monospace", size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+          ticks: {
+            color: "#5A5E60", font: { family: "'JetBrains Mono', monospace", size: 10 },
+            maxRotation: 0, autoSkip: true, maxTicksLimit: 10,
+            callback: (v) => fmtDateBR(addDaysISO(t0, v)),
+          },
         },
         y: {
           grid: { color: "rgba(255,255,255,0.04)" },
@@ -102,7 +122,7 @@ export default function WeightChart({ series, goal, windowDays = 27 }) {
 
   return (
     <div className="chart-wrap">
-      <canvas ref={canvasRef} role="img" aria-label={`Gráfico de evolução do peso com linha de tendência de ${windowDays} dias e linha da meta`} />
+      <canvas ref={canvasRef} role="img" aria-label={`Gráfico de evolução do peso com linha de tendência de ${windowDays} dias e linha da meta, eixo temporal proporcional`} />
     </div>
   );
 }

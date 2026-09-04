@@ -146,6 +146,38 @@ describe("Tier 2 — efeito do dia da semana", () => {
   });
 });
 
+describe("Tier 3 — fases da jornada e comparação de 90 dias", () => {
+  it("journey-phases dispara com uma quebra de ritmo clara, sempre como hipótese", () => {
+    const fast = makeSeries({ start: "2026-01-01", days: 45, startKg: 100, slopeKgPerDay: -0.14, noiseSd: 0.2, seed: 21 });
+    const slow = makeSeries({ start: "2026-02-15", days: 45, startKg: fast[fast.length - 1].weight, slopeKgPerDay: 0, noiseSd: 0.2, seed: 22 });
+    const series = [...fast, ...slow];
+    const ctx = ctxFor(series);
+    const phases = runInsights(ctx).find((i) => i.ruleId === "journey-phases");
+    expect(phases).toBeTruthy();
+    expect(phases.confianca).toBe("hipotese");
+  });
+
+  it("journey-phases não dispara com jornada curta (<60 dias)", () => {
+    const series = makeSeries({ days: 40, startKg: 100, slopeKgPerDay: -0.1, noiseSd: 0.2, seed: 5 });
+    const ctx = ctxFor(series);
+    expect(runInsights(ctx).some((i) => i.ruleId === "journey-phases")).toBe(false);
+  });
+
+  it("milestone-90d compara com o ponto mais próximo de 90 dias atrás, como fato", () => {
+    const series = makeSeries({ days: 120, startKg: 100, slopeKgPerDay: -0.05, noiseSd: 0.1, seed: 9 });
+    const ctx = ctxFor(series);
+    const m = runInsights(ctx).find((i) => i.ruleId === "milestone-90d");
+    expect(m).toBeTruthy();
+    expect(m.confianca).toBe("fato");
+  });
+
+  it("milestone-90d não dispara antes de 100 dias de jornada", () => {
+    const series = makeSeries({ days: 60, startKg: 100, slopeKgPerDay: -0.05, noiseSd: 0.1, seed: 9 });
+    const ctx = ctxFor(series);
+    expect(runInsights(ctx).some((i) => i.ruleId === "milestone-90d")).toBe(false);
+  });
+});
+
 describe("rankInsights", () => {
   it("com a mesma confiança, maior importância vem primeiro; respeita o limite", () => {
     const insights = [

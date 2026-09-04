@@ -1,9 +1,9 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Weight, TrendingDown, Flame, Settings } from "lucide-react";
+import { Weight, Map, Flame, Settings } from "lucide-react";
 
 const NAV = [
   { to: "/", label: "Hoje", icon: Weight, end: true },
-  { to: "/evolucao", label: "Evolução", icon: TrendingDown },
+  { to: "/jornada", label: "Jornada", icon: Map },
   { to: "/nutricao", label: "Nutrição", icon: Flame },
   { to: "/ajustes", label: "Ajustes", icon: Settings },
 ];

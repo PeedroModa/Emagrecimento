@@ -7,7 +7,7 @@ import Login from "./pages/Login.jsx";
 import TrocarSenha from "./pages/TrocarSenha.jsx";
 import PrimeiroAcesso from "./pages/PrimeiroAcesso.jsx";
 import Hoje from "./pages/Hoje.jsx";
-import Evolucao from "./pages/Evolucao.jsx";
+import Jornada from "./pages/Jornada.jsx";
 import Nutricao from "./pages/Nutricao.jsx";
 import Ajustes from "./pages/Ajustes.jsx";
 
@@ -57,7 +57,8 @@ function Onboarding({ user }) {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Hoje />} />
-          <Route path="/evolucao" element={<Evolucao />} />
+          <Route path="/jornada" element={<Jornada />} />
+          <Route path="/evolucao" element={<Navigate to="/jornada" replace />} />
           <Route path="/nutricao" element={<Nutricao />} />
           <Route path="/ajustes" element={<Ajustes />} />
           <Route path="*" element={<Navigate to="/" replace />} />

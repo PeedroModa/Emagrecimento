@@ -109,6 +109,14 @@ export function pFromT(t, df) {
   return incompleteBeta(x, df / 2, 0.5);
 }
 
+// P-valor de F >= f numa F(df1, df2) — mesma função beta incompleta,
+// identidade padrão P(F>f) = I_{df2/(df2+df1·f)}(df2/2, df1/2).
+export function pFromF(f, df1, df2) {
+  if (!(df1 > 0) || !(df2 > 0) || !(f >= 0)) return null;
+  const x = df2 / (df2 + df1 * f);
+  return incompleteBeta(x, df2 / 2, df1 / 2);
+}
+
 // Valor crítico bilateral t* tal que P(|T| >= t*) = 1 - confidence.
 export function tCritical(df, confidence = 0.95) {
   if (!(df > 0)) return null;
@@ -306,6 +314,82 @@ export function oneSampleTTest(values, { mu0 = 0, confidence = 0.95 } = {}) {
 // abaixo do anterior). Necessário sempre que uma regra roda vários testes
 // ao mesmo tempo (ex.: efeito por dia da semana = 7 testes) — sem isso, a
 // chance de achar "significância" por puro acaso sobe com cada teste extra.
+// ── Ponto de mudança (change-point) ─────────────────────────────────────
+// Encontra a melhor partição de `points` em duas retas (teste de Chow),
+// varrendo candidatos com estatísticas suficientes incrementais — O(n), não
+// o refit ingênuo O(n²). AVISO: o ponto é ESCOLHIDO minimizando RSS entre
+// ~n candidatos, então o F ingênuo é anticonservador (em ruído puro ele
+// sempre acha "a melhor quebra possível"). `pAdj` aplica Bonferroni sobre
+// `nCandidates` — use sempre `significantAdjusted`, nunca `significant`.
+// O chamador (regra de insight) nunca deve subir a confiança além de
+// "hipótese" por causa disso, mesmo com pAdj baixo.
+export function changePoint(points, { minSegment = 14, confidence = 0.95, bonferroni = true } = {}) {
+  const n = points.length;
+  if (n < 2 * minSegment + 2) return null;
+  const full = ols(points);
+  if (!full) return null;
+  const rss0 = full.rss;
+
+  const prefSx = new Array(n + 1).fill(0);
+  const prefSy = new Array(n + 1).fill(0);
+  const prefSxx = new Array(n + 1).fill(0);
+  const prefSxy = new Array(n + 1).fill(0);
+  const prefSyy = new Array(n + 1).fill(0);
+  for (let i = 0; i < n; i++) {
+    const p = points[i];
+    prefSx[i + 1] = prefSx[i] + p.x;
+    prefSy[i + 1] = prefSy[i] + p.y;
+    prefSxx[i + 1] = prefSxx[i] + p.x * p.x;
+    prefSxy[i + 1] = prefSxy[i] + p.x * p.y;
+    prefSyy[i + 1] = prefSyy[i] + p.y * p.y;
+  }
+  function segRss(lo, hi) {
+    const m = hi - lo;
+    if (m < 2) return null;
+    const sx = prefSx[hi] - prefSx[lo], sy = prefSy[hi] - prefSy[lo];
+    const sxx = prefSxx[hi] - prefSxx[lo], sxy = prefSxy[hi] - prefSxy[lo], syy = prefSyy[hi] - prefSyy[lo];
+    const mx = sx / m, my = sy / m;
+    const Sxx = sxx - m * mx * mx;
+    if (Sxx === 0) return null;
+    const Sxy = sxy - m * mx * my;
+    const Syy = syy - m * my * my;
+    const slope = Sxy / Sxx;
+    // identidade padrão: RSS = Syy - slope·Sxy (equivalente a Syy - Sxy²/Sxx)
+    const rss = Math.max(0, Syy - slope * Sxy);
+    return { rss, n: m };
+  }
+
+  let best = null;
+  let nCandidates = 0;
+  for (let k = minSegment; k <= n - minSegment; k++) {
+    const before = segRss(0, k);
+    const after = segRss(k, n);
+    if (!before || !after) continue;
+    nCandidates++;
+    const rssSplit = before.rss + after.rss;
+    if (!best || rssSplit < best.rssSplit) best = { index: k, rssSplit };
+  }
+  if (!best) return null;
+
+  const df2 = n - 4;
+  if (df2 <= 0) return null;
+  const f = Math.max(0, ((rss0 - best.rssSplit) / 2) / (best.rssSplit / df2));
+  const pValue = pFromF(f, 2, df2);
+  const pAdj = bonferroni ? Math.min(1, pValue * nCandidates) : pValue;
+  const alpha = 1 - confidence;
+
+  const beforeFit = ols(points.slice(0, best.index));
+  const afterFit = ols(points.slice(best.index));
+
+  return {
+    index: best.index, t: points[best.index].x, nCandidates,
+    rss0, rssSplit: best.rssSplit, f, pValue, pAdj,
+    significant: pValue < alpha, significantAdjusted: pAdj < alpha,
+    before: beforeFit, after: afterFit,
+    deltaSlopePerWeek: beforeFit && afterFit ? (afterFit.slope - beforeFit.slope) * 7 : null,
+  };
+}
+
 export function holmAdjust(pValues, { alpha = 0.05 } = {}) {
   const m = pValues.length;
   const indexed = pValues.map((p, index) => ({ p, index })).sort((a, b) => a.p - b.p);

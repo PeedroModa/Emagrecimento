@@ -13,12 +13,19 @@ import RecordsCard from "../components/weigh/RecordsCard.jsx";
 import RecompCard from "../components/weigh/RecompCard.jsx";
 import ProgressionBars from "../components/weigh/ProgressionBars.jsx";
 import HistoryList from "../components/weigh/HistoryList.jsx";
+import Comparator from "../components/weigh/Comparator.jsx";
+import JourneyTimeline from "../components/weigh/JourneyTimeline.jsx";
 import SectionHeader from "../components/layout/SectionHeader.jsx";
 import ConfirmModal from "../components/ui/ConfirmModal.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 import { useToast, Toast } from "../components/ui/Toast.jsx";
 
-export default function Evolucao() {
+// Etapa 4 da V2: a antiga "Evolução" vira "Jornada" — o mesmo histórico
+// editável de sempre, mais a narrativa que os dados guardam (timeline de
+// momentos) e uma forma de comparar você mesmo em dois pontos do tempo.
+// Nenhuma funcionalidade foi perdida: editar/excluir pesagem, gráfico,
+// tendência, recordes e recomposição continuam aqui, intactos.
+export default function Jornada() {
   const { user } = useAuth();
   const { weighIns, loading, error, retry, update, remove, setContextTags } = useWeighIns();
   const { settings } = useSettings();
@@ -95,7 +102,7 @@ export default function Evolucao() {
     return (
       <div>
         <div className="page-hdr">
-          <h1 className="page-title">Evolução</h1>
+          <h1 className="page-title">Jornada</h1>
           <p className="page-sub">carregando histórico...</p>
         </div>
         <div className="skeleton" style={{ height: 300, marginBottom: 16 }} />
@@ -107,7 +114,7 @@ export default function Evolucao() {
   if (error) {
     return (
       <div>
-        <div className="page-hdr"><h1 className="page-title">Evolução</h1></div>
+        <div className="page-hdr"><h1 className="page-title">Jornada</h1></div>
         <EmptyState title="Não consegui carregar" text={error} />
         <div style={{ textAlign: "center", marginTop: 12 }}>
           <button className="btn-secondary" onClick={retry}>Tentar de novo</button>
@@ -119,9 +126,11 @@ export default function Evolucao() {
   return (
     <div>
       <div className="page-hdr">
-        <h1 className="page-title">Evolução</h1>
+        <h1 className="page-title">Jornada</h1>
         <p className="page-sub">{weighIns.length} {weighIns.length === 1 ? "pesagem registrada" : "pesagens registradas"}</p>
       </div>
+
+      <JourneyTimeline sorted={weighIns} records={records} />
 
       {/* Gráfico de linha */}
       <div className="card">
@@ -152,6 +161,8 @@ export default function Evolucao() {
           />
         )}
       </div>
+
+      <Comparator weighIns={weighIns} />
 
       <TrendCard
         trend={trend} goal={goal} windowDays={windowDays}

@@ -25,7 +25,7 @@ export const NOISE_ROBUST_MIN_N = 5; // nº mínimo de variações anteriores pa
 export const NOISE_MAX_GAP_DAYS = 14; // gaps maiores que isso não entram na banda de ruído (mudança de regime, não oscilação)
 export const TREND_WINDOW_DAYS = 28; // janela da regressão na opção padrão (= 4 semanas cheias)
 
-// Janelas de análise oferecidas ao usuário na Evolução. 27 dias é o padrão e
+// Janelas de análise oferecidas ao usuário na Jornada. 27 dias é o padrão e
 // continua sendo o comportamento inicial do painel.
 export const TREND_WINDOW_OPTIONS = [27, 60, 90, 180, 365];
 
@@ -58,6 +58,13 @@ export const CONTEXT_TAG_MAX = 2; // limite de tags de contexto por pesagem
 
 export function todayISO() {
   return new Date().toISOString().slice(0, 10);
+}
+
+// Inverso de daysBetween: soma `n` dias (pode ser negativo) a uma data ISO.
+// Usado pelo eixo temporal do gráfico (ticks numéricos -> rótulo de data).
+export function addDaysISO(iso, n) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return new Date(d.getTime() + n * 86400000).toISOString().slice(0, 10);
 }
 
 export function fmtDateBR(iso) {
@@ -135,7 +142,7 @@ export function computeRecords(sortedWeights) {
 // Janela adequada à densidade real dos dados ao redor de `w`: 7 dias quando
 // a pesagem já é quase diária (>=5 pesagens nos últimos 7 dias), 27 quando
 // ainda é esparsa (regime semanal, ou histórico antigo). Só entra em ação
-// quando o chamador NÃO fixa uma janela explícita — a Evolução, com seu
+// quando o chamador NÃO fixa uma janela explícita — a Jornada, com seu
 // seletor manual (27/60/90/180/365), sempre fixa uma, e continua se
 // comportando exatamente como antes.
 function adaptiveWindowDays(sortedWeights, w) {

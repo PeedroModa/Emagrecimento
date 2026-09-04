@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
-  mean, sd, median, mad, pFromT, tCritical, ols, slopePerWeek,
+  mean, sd, median, mad, pFromT, tCritical, pFromF, ols, slopePerWeek,
   normalizedDeltas, noiseBand, zScore, movingAverageTrailing, movingAverageCentered,
-  oneSampleTTest, holmAdjust,
+  oneSampleTTest, holmAdjust, changePoint,
 } from "./stats.js";
 
 describe("mean / sd / median / mad", () => {
@@ -288,5 +288,72 @@ describe("holmAdjust — correção de múltiplos testes (ex.: 7 dias da semana)
     const res = holmAdjust([0.04, 0.6, 0.7, 0.8, 0.5, 0.9, 0.3]);
     const first = res.find((r) => r.p === 0.04);
     expect(first.pAdj).toBeGreaterThan(0.04); // penalizado pelos outros 6 testes
+  });
+});
+
+describe("pFromF", () => {
+  it("bate com valores publicados de F(2, 30) e F(2, 100)", () => {
+    // F crítico bilateral... aqui é unicaudal (F sempre >=0): P(F(2,30) > 3.316) ~= 0.05
+    expect(pFromF(3.316, 2, 30)).toBeCloseTo(0.05, 2);
+    expect(pFromF(3.0873, 2, 100)).toBeCloseTo(0.05, 2);
+  });
+
+  it("null com parâmetros inválidos", () => {
+    expect(pFromF(1, 0, 10)).toBeNull();
+    expect(pFromF(-1, 2, 10)).toBeNull();
+  });
+});
+
+function mulberry32(seed) {
+  let a = seed;
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function gaussian(rng) {
+  const u = Math.max(rng(), 1e-9), v = rng();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+describe("changePoint", () => {
+  it("encontra o ponto de quebra conhecido numa série com duas fases claras", () => {
+    const rng = mulberry32(42);
+    const points = [];
+    for (let x = 0; x < 90; x++) {
+      const y = x < 45 ? 95 - x * 0.14 : 95 - 45 * 0.14; // cai até x=45, depois platô
+      points.push({ x, y: y + gaussian(rng) * 0.2 });
+    }
+    const r = changePoint(points, { minSegment: 14 });
+    expect(r).not.toBeNull();
+    expect(r.index).toBeGreaterThan(35);
+    expect(r.index).toBeLessThan(55);
+    expect(r.significantAdjusted).toBe(true);
+    expect(r.before.slope).toBeLessThan(r.after.slope); // antes cai mais rápido (slope mais negativo)
+  });
+
+  it("nunca retorna NaN/Infinity mesmo em séries curtas, e null quando não há pontos suficientes", () => {
+    expect(changePoint([{ x: 0, y: 1 }, { x: 1, y: 2 }])).toBeNull();
+    const rng = mulberry32(1);
+    const points = Array.from({ length: 30 }, (_, x) => ({ x, y: 90 + gaussian(rng) * 0.3 }));
+    const r = changePoint(points, { minSegment: 14 });
+    if (r) {
+      expect(Number.isFinite(r.f)).toBe(true);
+      expect(Number.isFinite(r.pValue)).toBe(true);
+    }
+  });
+
+  it("em ruído puro (sem quebra real), a maioria das séries NÃO é significativa após Bonferroni", () => {
+    let hits = 0;
+    const total = 20;
+    for (let seed = 1; seed <= total; seed++) {
+      const rng = mulberry32(seed * 131);
+      const points = Array.from({ length: 90 }, (_, x) => ({ x, y: 90 + gaussian(rng) * 0.4 }));
+      const r = changePoint(points, { minSegment: 14 });
+      if (r?.significantAdjusted) hits++;
+    }
+    expect(hits / total).toBeLessThanOrEqual(0.35);
   });
 });
