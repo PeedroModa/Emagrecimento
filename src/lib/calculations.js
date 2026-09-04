@@ -89,6 +89,22 @@ export function navyBodyFat(waist, neck, heightCm) {
   return bf > 2 && bf < 70 ? +bf.toFixed(1) : null;
 }
 
+// Navy method — variante completa (Etapa 5), aceita sexo e quadril. Homens
+// continuam usando navyBodyFat() sem alteração (cintura-pescoço). Mulheres
+// PRECISAM de quadril — na ausência dele, retorna null com o motivo
+// explícito; nunca cai silenciosamente na fórmula masculina (bug da V1).
+export function navyBodyFatFull({ waist, neck, hip, heightCm, sex = "M" } = {}) {
+  const h = heightCm || DEFAULT_HEIGHT_CM;
+  if (sex === "F") {
+    if (!waist || !neck || !hip) return { bf: null, reason: "missing-hip" };
+    if (waist + hip <= neck) return { bf: null, reason: "invalid" };
+    const bf = 495 / (1.29579 - 0.35004 * Math.log10(waist + hip - neck) + 0.221 * Math.log10(h)) - 450;
+    return bf > 2 && bf < 70 ? { bf: +bf.toFixed(1), reason: null } : { bf: null, reason: "out-of-range" };
+  }
+  const bf = navyBodyFat(waist, neck, h);
+  return { bf, reason: bf != null ? null : (waist && neck ? "out-of-range" : "missing-measures") };
+}
+
 // Regressão linear simples -> inclinação (unidade y por unidade x).
 // Delega para stats.ols() (mesma fórmula, mesmo caso-limite den===0 -> null);
 // mantida como função separada porque é a única parte do resultado da OLS

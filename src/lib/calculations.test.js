@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  navyBodyFat, linearSlope, bmi, bmiCategory, computeRecords, computeSeries, daysBetween,
+  navyBodyFat, navyBodyFatFull, linearSlope, bmi, bmiCategory, computeRecords, computeSeries, daysBetween,
   computeTrend, computeSignalRead, computeLastChange, computeCalories, computeMacros,
   computeSimulator, rateStatus, activityFactor, ageFromBirthDate, isValidBirthDate, trendRateChange,
   AVG_WINDOW_DAYS, TREND_WINDOW_DAYS, TREND_WINDOW_OPTIONS, regressionWindowFor, regressionWeeksFor,
@@ -23,6 +23,29 @@ describe("navyBodyFat", () => {
     expect(bf).not.toBeNull();
     expect(bf).toBeGreaterThan(2);
     expect(bf).toBeLessThan(70);
+  });
+});
+
+describe("navyBodyFatFull — Etapa 5 (sexo + quadril)", () => {
+  it("homem: delega para navyBodyFat sem alteração", () => {
+    const a = navyBodyFat(90, 38, 175);
+    const b = navyBodyFatFull({ waist: 90, neck: 38, heightCm: 175, sex: "M" });
+    expect(b.bf).toBe(a);
+    expect(b.reason).toBeNull();
+  });
+
+  it("mulher SEM quadril: null com motivo explícito — nunca cai na fórmula masculina", () => {
+    const r = navyBodyFatFull({ waist: 70, neck: 32, heightCm: 165, sex: "F" });
+    expect(r.bf).toBeNull();
+    expect(r.reason).toBe("missing-hip");
+  });
+
+  it("mulher COM quadril: calcula um BF válido dentro da faixa 2-70", () => {
+    const r = navyBodyFatFull({ waist: 70, neck: 32, hip: 95, heightCm: 165, sex: "F" });
+    expect(r.bf).not.toBeNull();
+    expect(r.bf).toBeGreaterThan(2);
+    expect(r.bf).toBeLessThan(70);
+    expect(r.reason).toBeNull();
   });
 });
 

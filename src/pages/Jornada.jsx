@@ -3,6 +3,7 @@ import { LineChart } from "lucide-react";
 import { useAuth } from "../hooks/useAuth.js";
 import { useWeighIns } from "../hooks/useWeighIns.js";
 import { useSettings } from "../hooks/useSettings.js";
+import { useMeasurements } from "../hooks/useMeasurements.js";
 import {
   computeSeries, computeTrend, computeRecords, fmtDateBR,
   AVG_WINDOW_DAYS, TREND_WINDOW_OPTIONS, regressionWindowFor, trendRateChange,
@@ -15,6 +16,8 @@ import ProgressionBars from "../components/weigh/ProgressionBars.jsx";
 import HistoryList from "../components/weigh/HistoryList.jsx";
 import Comparator from "../components/weigh/Comparator.jsx";
 import JourneyTimeline from "../components/weigh/JourneyTimeline.jsx";
+import MeasurementForm from "../components/weigh/MeasurementForm.jsx";
+import BodyMap from "../components/weigh/BodyMap.jsx";
 import SectionHeader from "../components/layout/SectionHeader.jsx";
 import ConfirmModal from "../components/ui/ConfirmModal.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
@@ -29,8 +32,10 @@ export default function Jornada() {
   const { user } = useAuth();
   const { weighIns, loading, error, retry, update, remove, setContextTags } = useWeighIns();
   const { settings } = useSettings();
+  const { measurements, addOrReplace: addOrReplaceMeasurement } = useMeasurements();
   const { toast, show } = useToast();
   const [confirm, setConfirm] = useState(null);
+  const [savingMeasurement, setSavingMeasurement] = useState(false);
   // Preferência de visualização apenas: não persiste e não toca nas pesagens.
   const [windowDays, setWindowDays] = useState(AVG_WINDOW_DAYS);
 
@@ -59,6 +64,15 @@ export default function Jornada() {
   const latest = weighIns[weighIns.length - 1];
   const rateChange = windowDays === AVG_WINDOW_DAYS ? trendRateChange(weighIns, goal, settings.height_cm) : null;
   const showTrendPrompt = !!rateChange && latest?.context_tags === null;
+
+  async function handleSaveMeasurement(entry) {
+    setSavingMeasurement(true);
+    const { error: err } = await addOrReplaceMeasurement(entry, user.id);
+    setSavingMeasurement(false);
+    if (err) { show(err, "error"); return false; }
+    show("Medidas salvas.");
+    return true;
+  }
 
   async function handleSaveContext(tags, note) {
     const { error: err } = await setContextTags(latest.id, tags);
@@ -172,6 +186,13 @@ export default function Jornada() {
       <RecordsCard records={records} />
       <RecompCard fatDelta={fatDelta} leanDelta={leanDelta} waistDelta={waistDelta} sample={sample} />
       <ProgressionBars series={series} goal={goal} />
+
+      <BodyMap measurements={measurements} heightCm={settings.height_cm} />
+
+      <div className="card">
+        <SectionHeader title="Medidas corporais" subtitle="sessão mensal — cintura, pescoço, quadril, peito, braço, coxa" />
+        <MeasurementForm onSubmit={handleSaveMeasurement} saving={savingMeasurement} />
+      </div>
 
       <div className="card">
         <SectionHeader title="Histórico" subtitle="edite ou remova qualquer registro" />

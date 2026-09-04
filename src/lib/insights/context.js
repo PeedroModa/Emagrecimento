@@ -7,7 +7,7 @@ import { ols, normalizedDeltas, noiseBand } from "../stats.js";
 
 const TREND_WINDOWS = [14, 28, 56, 90];
 
-export function buildInsightContext({ weighIns, settings, today }) {
+export function buildInsightContext({ weighIns, settings, today, measurements = [] }) {
   const sorted = weighIns || [];
   const n = sorted.length;
   const first = sorted[0] ?? null;
@@ -51,6 +51,6 @@ export function buildInsightContext({ weighIns, settings, today }) {
     deltas, dropped, denseDeltaCount, band, trends, records,
     bmiNow, bmiCat: bmiCategory(bmiNow), journeyDays,
     goal, totalToLose, totalLost, progressPct,
-    settings,
+    settings, measurements,
   };
 }

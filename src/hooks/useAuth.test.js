@@ -6,6 +6,9 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("../lib/supabase.js", () => ({ supabase: { auth: {} } }));
 vi.mock("./useWeighIns.js", () => ({ clearWeighInsCache: () => {} }));
 vi.mock("./useSettings.js", () => ({ clearSettingsCache: () => {} }));
+vi.mock("./useAppState.js", () => ({ clearAppStateCache: () => {} }));
+vi.mock("./useInsightState.js", () => ({ clearInsightStateCache: () => {} }));
+vi.mock("./useMeasurements.js", () => ({ clearMeasurementsCache: () => {} }));
 
 const { mustChangePassword, interpretSignUpResult } = await import("./useAuth.js");
 

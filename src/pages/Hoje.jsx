@@ -5,6 +5,7 @@ import { useWeighIns } from "../hooks/useWeighIns.js";
 import { useSettings } from "../hooks/useSettings.js";
 import { useAppState } from "../hooks/useAppState.js";
 import { useInsightState } from "../hooks/useInsightState.js";
+import { useMeasurements } from "../hooks/useMeasurements.js";
 import { computeSignalRead, computeLastChange, fmtDateBR, todayISO } from "../lib/calculations.js";
 import { buildInsightContext, runInsights, rankInsights, computeInvestigations } from "../lib/insights/index.js";
 import { parseImportJSON } from "../lib/backup.js";
@@ -35,6 +36,7 @@ export default function Hoje() {
   const { toast, show } = useToast();
   const { previousVisitAt } = useAppState(user?.id);
   const { statesByKey, markSeen, dismiss } = useInsightState(user?.id);
+  const { measurements } = useMeasurements();
   const [confirm, setConfirm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -48,8 +50,8 @@ export default function Hoje() {
   const lastChange = useMemo(() => computeLastChange(sorted), [sorted]);
 
   const insightCtx = useMemo(
-    () => buildInsightContext({ weighIns: sorted, settings, today: todayISO() }),
-    [sorted, settings]
+    () => buildInsightContext({ weighIns: sorted, settings, measurements, today: todayISO() }),
+    [sorted, settings, measurements]
   );
   const investigations = useMemo(() => computeInvestigations(insightCtx), [insightCtx]);
   const rankedInsights = useMemo(() => {

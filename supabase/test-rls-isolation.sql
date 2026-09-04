@@ -69,6 +69,10 @@ insert into insight_state (user_id, insight_key, rule_id) values
   (current_setting('test.user_a')::uuid, 'plateau:2026-01-01..2026-01-28', 'plateau'),
   (current_setting('test.user_b')::uuid, 'plateau:2026-01-01..2026-01-28', 'plateau');
 
+insert into body_measurements (user_id, date, waist_cm, hip_cm) values
+  (current_setting('test.user_a')::uuid, '2026-01-01', 90.0, 100.0),
+  (current_setting('test.user_b')::uuid, '2026-01-01', 75.0, 95.0);
+
 -- ── 2. Canário: prova que a impersonação está realmente ativa ────────────
 -- Com um sub aleatório (de ninguém), a contagem TEM que ser zero nas duas
 -- tabelas. Se não for, "set local role" foi pulado/mal posicionado e todo o
@@ -97,6 +101,10 @@ begin
   if v_count <> 0 then
     raise exception 'CANARY FAILURE: % linhas visíveis em insight_state sem identidade válida — RLS não está sendo aplicado', v_count;
   end if;
+  select count(*) into v_count from body_measurements;
+  if v_count <> 0 then
+    raise exception 'CANARY FAILURE: % linhas visíveis em body_measurements sem identidade válida — RLS não está sendo aplicado', v_count;
+  end if;
   raise notice 'canário ok — RLS está realmente ativo em todas as tabelas';
 end $$;
 
@@ -115,6 +123,9 @@ begin
   end if;
   if exists (select 1 from insight_state where user_id = current_setting('test.user_b')::uuid) then
     raise exception 'ISOLATION FAILURE: A conseguiu ver o estado de insights de B';
+  end if;
+  if exists (select 1 from body_measurements where user_id = current_setting('test.user_b')::uuid) then
+    raise exception 'ISOLATION FAILURE: A conseguiu ver medidas corporais de B';
   end if;
   if (select count(*) from weigh_ins) <> 2 then
     raise exception 'ISOLATION FAILURE: A não está vendo as próprias 2 pesagens';
@@ -137,6 +148,9 @@ begin
   if exists (select 1 from insight_state where user_id = current_setting('test.user_a')::uuid) then
     raise exception 'ISOLATION FAILURE: B conseguiu ver o estado de insights de A';
   end if;
+  if exists (select 1 from body_measurements where user_id = current_setting('test.user_a')::uuid) then
+    raise exception 'ISOLATION FAILURE: B conseguiu ver medidas corporais de A';
+  end if;
   raise notice 'ok — B não vê nada de A';
 end $$;
 
@@ -152,6 +166,7 @@ update weigh_ins set weight_kg = 999 where user_id = current_setting('test.user_
 update user_settings set goal_kg = 999 where user_id = current_setting('test.user_b')::uuid;
 update user_app_state set feed_seen_at = now() where user_id = current_setting('test.user_b')::uuid;
 update insight_state set status = 'dismissed' where user_id = current_setting('test.user_b')::uuid;
+update body_measurements set waist_cm = 200.0 where user_id = current_setting('test.user_b')::uuid;
 
 reset role;
 do $$
@@ -168,6 +183,9 @@ begin
   if exists (select 1 from insight_state where user_id = current_setting('test.user_b')::uuid and status = 'dismissed') then
     raise exception 'ISOLATION FAILURE: A conseguiu editar o estado de insights de B';
   end if;
+  if exists (select 1 from body_measurements where user_id = current_setting('test.user_b')::uuid and waist_cm = 200.0) then
+    raise exception 'ISOLATION FAILURE: A conseguiu editar medidas corporais de B';
+  end if;
   raise notice 'ok — UPDATE de A sobre dados de B não teve efeito nenhum';
 end $$;
 
@@ -177,6 +195,7 @@ delete from weigh_ins where user_id = current_setting('test.user_b')::uuid;
 delete from user_settings where user_id = current_setting('test.user_b')::uuid;
 delete from user_app_state where user_id = current_setting('test.user_b')::uuid;
 delete from insight_state where user_id = current_setting('test.user_b')::uuid;
+delete from body_measurements where user_id = current_setting('test.user_b')::uuid;
 
 reset role;
 do $$
@@ -192,6 +211,9 @@ begin
   end if;
   if not exists (select 1 from insight_state where user_id = current_setting('test.user_b')::uuid) then
     raise exception 'ISOLATION FAILURE: A conseguiu apagar o estado de insights de B';
+  end if;
+  if not exists (select 1 from body_measurements where user_id = current_setting('test.user_b')::uuid) then
+    raise exception 'ISOLATION FAILURE: A conseguiu apagar medidas corporais de B';
   end if;
   raise notice 'ok — DELETE de A sobre dados de B não teve efeito nenhum';
 end $$;
@@ -266,6 +288,22 @@ begin
     raise exception 'ISOLATION FAILURE: A conseguiu criar estado de insight em nome de C';
   end if;
   raise notice 'ok — INSERT de A em nome de C (insight_state) foi rejeitado pela RLS';
+end $$;
+
+do $$
+declare
+  v_ok boolean := false;
+begin
+  begin
+    insert into body_measurements (user_id, date, waist_cm) values (current_setting('test.user_c')::uuid, '2099-01-01', 90.0);
+    v_ok := true;
+  exception when others then
+    v_ok := false;
+  end;
+  if v_ok then
+    raise exception 'ISOLATION FAILURE: A conseguiu criar medidas corporais em nome de C';
+  end if;
+  raise notice 'ok — INSERT de A em nome de C (body_measurements) foi rejeitado pela RLS';
 end $$;
 
 -- ── 6. Nada disso fica gravado ────────────────────────────────────────────

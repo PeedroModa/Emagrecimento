@@ -85,6 +85,32 @@ create table if not exists insight_state (
 
 create index if not exists insight_state_user_rule_idx on insight_state (user_id, rule_id);
 
+-- Medidas corporais ampliadas (V2, sessão mensal) — tabela independente de
+-- weigh_ins: cadências diferentes (diária vs. mensal) não deveriam morar
+-- na mesma linha. waist_cm/neck_cm aqui são uma captura própria da sessão
+-- completa, separada da cintura/pescoço opcionais do registro diário.
+create table if not exists body_measurements (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  date        date not null,
+  waist_cm    numeric(5,1) check (waist_cm  between 30 and 250),
+  neck_cm     numeric(5,1) check (neck_cm   between 15 and 100),
+  hip_cm      numeric(5,1) check (hip_cm    between 40 and 250),
+  chest_cm    numeric(5,1) check (chest_cm  between 40 and 250),
+  arm_cm      numeric(5,1) check (arm_cm    between 10 and 100),
+  thigh_cm    numeric(5,1) check (thigh_cm  between 20 and 120),
+  note        text check (char_length(note) <= 120),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  unique (user_id, date),
+  check (num_nonnulls(waist_cm, neck_cm, hip_cm, chest_cm, arm_cm, thigh_cm) > 0)
+);
+
+create index if not exists body_measurements_user_date_idx on body_measurements (user_id, date desc);
+
+create trigger body_measurements_touch before update on body_measurements
+  for each row execute function set_updated_at();
+
 -- ============================================================
 -- Row Level Security: cada usuário só enxerga os próprios dados.
 -- A segurança fica no banco, não na interface.
@@ -94,6 +120,7 @@ alter table weigh_ins enable row level security;
 alter table user_settings enable row level security;
 alter table user_app_state enable row level security;
 alter table insight_state enable row level security;
+alter table body_measurements enable row level security;
 
 -- weigh_ins
 create policy "weigh_ins_select_own" on weigh_ins
@@ -145,4 +172,17 @@ create policy "insight_state_update_own" on insight_state
   for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "insight_state_delete_own" on insight_state
+  for delete using (auth.uid() = user_id);
+
+-- body_measurements
+create policy "body_measurements_select_own" on body_measurements
+  for select using (auth.uid() = user_id);
+
+create policy "body_measurements_insert_own" on body_measurements
+  for insert with check (auth.uid() = user_id);
+
+create policy "body_measurements_update_own" on body_measurements
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "body_measurements_delete_own" on body_measurements
   for delete using (auth.uid() = user_id);

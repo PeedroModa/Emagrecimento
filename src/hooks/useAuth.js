@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase.js";
 import { clearWeighInsCache } from "./useWeighIns.js";
 import { clearSettingsCache } from "./useSettings.js";
+import { clearAppStateCache } from "./useAppState.js";
+import { clearInsightStateCache } from "./useInsightState.js";
+import { clearMeasurementsCache } from "./useMeasurements.js";
 
 const RECOVERY_FLAG_KEY = "pwRecoveryPending";
 
@@ -53,6 +56,9 @@ export function useAuth() {
       if (event === "SIGNED_OUT") {
         clearWeighInsCache();
         clearSettingsCache();
+        clearAppStateCache();
+        clearInsightStateCache();
+        clearMeasurementsCache();
         clearRecoveryFlag();
         setPasswordRecovery(false);
         setSessionExpired(!explicitSignOut);

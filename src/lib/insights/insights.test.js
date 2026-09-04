@@ -7,8 +7,8 @@ import { FIXTURES, makeSeries, withSpike } from "./__fixtures__/series.js";
 
 const settings = { height_cm: 175, goal_kg: 90, sex: "M" };
 
-function ctxFor(weighIns, today) {
-  return buildInsightContext({ weighIns, settings, today: today ?? weighIns[weighIns.length - 1]?.date ?? "2026-01-01" });
+function ctxFor(weighIns, today, measurements = []) {
+  return buildInsightContext({ weighIns, settings, measurements, today: today ?? weighIns[weighIns.length - 1]?.date ?? "2026-01-01" });
 }
 
 const TIER0_IDS = new Set(["starting-point", "distance-to-goal", "bmi-band", "journey-duration", "new-record"]);
@@ -175,6 +175,54 @@ describe("Tier 3 — fases da jornada e comparação de 90 dias", () => {
     const series = makeSeries({ days: 60, startKg: 100, slopeKgPerDay: -0.05, noiseSd: 0.1, seed: 9 });
     const ctx = ctxFor(series);
     expect(runInsights(ctx).some((i) => i.ruleId === "milestone-90d")).toBe(false);
+  });
+});
+
+describe("Tier 4 — medidas corporais ampliadas", () => {
+  it("waist-height-ratio dispara com 1 única medição, sempre como fato", () => {
+    const series = FIXTURES.sparse6;
+    const measurements = [{ id: "m1", date: series[series.length - 1].date, waist: 80 }];
+    const ctx = ctxFor(series, undefined, measurements);
+    const r = runInsights(ctx).find((i) => i.ruleId === "waist-height-ratio");
+    expect(r).toBeTruthy();
+    expect(r.confianca).toBe("fato");
+  });
+
+  it("waist-height-ratio não dispara sem nenhuma medição", () => {
+    const ctx = ctxFor(FIXTURES.sparse6, undefined, []);
+    expect(runInsights(ctx).some((i) => i.ruleId === "waist-height-ratio")).toBe(false);
+  });
+
+  it("recomposition dispara quando o peso está em platô mas a cintura caiu de verdade", () => {
+    const series = FIXTURES.plateauReal; // slope 0, 60 dias diários
+    const measurements = [
+      { id: "m1", date: series[0].date, waist: 95 },
+      { id: "m2", date: series[series.length - 1].date, waist: 91 },
+    ];
+    const ctx = ctxFor(series, undefined, measurements);
+    const r = runInsights(ctx).find((i) => i.ruleId === "recomposition");
+    expect(r).toBeTruthy();
+    expect(r.confianca).toBe("estimativa");
+  });
+
+  it("recomposition não dispara se a queda de cintura for pequena demais", () => {
+    const series = FIXTURES.plateauReal;
+    const measurements = [
+      { id: "m1", date: series[0].date, waist: 95 },
+      { id: "m2", date: series[series.length - 1].date, waist: 94.5 },
+    ];
+    const ctx = ctxFor(series, undefined, measurements);
+    expect(runInsights(ctx).some((i) => i.ruleId === "recomposition")).toBe(false);
+  });
+
+  it("recomposition não dispara se a tendência de peso já for estatisticamente real (não é platô)", () => {
+    const series = FIXTURES.fastLoss;
+    const measurements = [
+      { id: "m1", date: series[0].date, waist: 95 },
+      { id: "m2", date: series[series.length - 1].date, waist: 88 },
+    ];
+    const ctx = ctxFor(series, undefined, measurements);
+    expect(runInsights(ctx).some((i) => i.ruleId === "recomposition")).toBe(false);
   });
 });
 
