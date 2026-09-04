@@ -6,6 +6,7 @@ import { useSettings } from "../hooks/useSettings.js";
 import { useAppState } from "../hooks/useAppState.js";
 import { useInsightState } from "../hooks/useInsightState.js";
 import { useMeasurements } from "../hooks/useMeasurements.js";
+import { useDayMarkers } from "../hooks/useDayMarkers.js";
 import { computeSignalRead, computeLastChange, fmtDateBR, todayISO } from "../lib/calculations.js";
 import { buildInsightContext, runInsights, rankInsights, computeInvestigations } from "../lib/insights/index.js";
 import { parseImportJSON } from "../lib/backup.js";
@@ -16,6 +17,7 @@ import SectionHeader from "../components/layout/SectionHeader.jsx";
 import ConfirmModal from "../components/ui/ConfirmModal.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 import { useToast, Toast } from "../components/ui/Toast.jsx";
+import DayMarkerChips from "../components/weigh/DayMarkerChips.jsx";
 import InsightFeed from "../components/insights/InsightFeed.jsx";
 import InvestigationsList from "../components/insights/InvestigationsList.jsx";
 import SinceLastVisit from "../components/insights/SinceLastVisit.jsx";
@@ -37,6 +39,7 @@ export default function Hoje() {
   const { previousVisitAt } = useAppState(user?.id);
   const { statesByKey, markSeen, dismiss } = useInsightState(user?.id);
   const { measurements } = useMeasurements();
+  const { markers, toggle: toggleMarker } = useDayMarkers();
   const [confirm, setConfirm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -50,8 +53,8 @@ export default function Hoje() {
   const lastChange = useMemo(() => computeLastChange(sorted), [sorted]);
 
   const insightCtx = useMemo(
-    () => buildInsightContext({ weighIns: sorted, settings, measurements, today: todayISO() }),
-    [sorted, settings, measurements]
+    () => buildInsightContext({ weighIns: sorted, settings, measurements, markers, today: todayISO() }),
+    [sorted, settings, measurements, markers]
   );
   const investigations = useMemo(() => computeInvestigations(insightCtx), [insightCtx]);
   const rankedInsights = useMemo(() => {
@@ -222,6 +225,16 @@ export default function Hoje() {
         <SectionHeader title="Registrar pesagem" subtitle="uma pesagem por dia, de manhã — quanto mais denso, mais preciso" />
         <WeighForm onSubmit={handleSubmit} saving={saving} />
       </div>
+
+      {hasWeights && (
+        <div className="card">
+          <DayMarkerChips
+            date={todayISO()}
+            marker={markers.find((m) => m.date === todayISO())}
+            onToggle={(date, key) => toggleMarker(date, key, user.id)}
+          />
+        </div>
+      )}
 
       <InsightFeed insights={rankedInsights} onDismiss={handleDismiss} onSeen={handleSeen} />
       <InvestigationsList items={investigations} />

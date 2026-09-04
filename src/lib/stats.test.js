@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   mean, sd, median, mad, pFromT, tCritical, pFromF, ols, slopePerWeek,
   normalizedDeltas, noiseBand, zScore, movingAverageTrailing, movingAverageCentered,
-  oneSampleTTest, holmAdjust, changePoint,
+  oneSampleTTest, welchTTest, holmAdjust, changePoint,
 } from "./stats.js";
 
 describe("mean / sd / median / mad", () => {
@@ -288,6 +288,38 @@ describe("holmAdjust — correção de múltiplos testes (ex.: 7 dias da semana)
     const res = holmAdjust([0.04, 0.6, 0.7, 0.8, 0.5, 0.9, 0.3]);
     const first = res.find((r) => r.p === 0.04);
     expect(first.pAdj).toBeGreaterThan(0.04); // penalizado pelos outros 6 testes
+  });
+});
+
+describe("welchTTest", () => {
+  it("detecta diferença real entre dois grupos com variâncias bem diferentes", () => {
+    const a = [1.0, 1.2, 0.9, 1.1, 1.05, 0.95, 1.15]; // baixa variância
+    const b = [0.1, 0.5, -0.3, 0.8, 0.2, 0.9, -0.1, 0.4, 0.0, 0.6]; // alta variância, média menor
+    const r = welchTTest(a, b);
+    expect(r).not.toBeNull();
+    expect(r.diff).toBeGreaterThan(0);
+    expect(r.significant).toBe(true);
+    expect(Number.isFinite(r.df)).toBe(true);
+  });
+
+  it("null com qualquer grupo tendo menos de 2 valores", () => {
+    expect(welchTTest([1], [1, 2])).toBeNull();
+    expect(welchTTest([1, 2], [])).toBeNull();
+  });
+
+  it("grupos idênticos: diff=0, não significativo, nunca NaN", () => {
+    const r = welchTTest([1, 1, 1], [1, 1, 1]);
+    expect(r.diff).toBe(0);
+    expect(r.t).toBe(0);
+    expect(r.significant).toBe(false);
+    expect(Number.isNaN(r.pValue)).toBe(false);
+  });
+
+  it("grupos constantes mas DIFERENTES: t=Infinity sem NaN, p=0", () => {
+    const r = welchTTest([2, 2, 2], [1, 1, 1]);
+    expect(r.t).toBe(Infinity);
+    expect(r.pValue).toBe(0);
+    expect(r.significant).toBe(true);
   });
 });
 

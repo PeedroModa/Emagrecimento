@@ -7,8 +7,8 @@ import { FIXTURES, makeSeries, withSpike } from "./__fixtures__/series.js";
 
 const settings = { height_cm: 175, goal_kg: 90, sex: "M" };
 
-function ctxFor(weighIns, today, measurements = []) {
-  return buildInsightContext({ weighIns, settings, measurements, today: today ?? weighIns[weighIns.length - 1]?.date ?? "2026-01-01" });
+function ctxFor(weighIns, today, measurements = [], markers = []) {
+  return buildInsightContext({ weighIns, settings, measurements, markers, today: today ?? weighIns[weighIns.length - 1]?.date ?? "2026-01-01" });
 }
 
 const TIER0_IDS = new Set(["starting-point", "distance-to-goal", "bmi-band", "journey-duration", "new-record"]);
@@ -223,6 +223,37 @@ describe("Tier 4 — medidas corporais ampliadas", () => {
     ];
     const ctx = ctxFor(series, undefined, measurements);
     expect(runInsights(ctx).some((i) => i.ruleId === "recomposition")).toBe(false);
+  });
+});
+
+describe("Tier 5 — marcadores casuais com defasagem", () => {
+  it("detecta um efeito real e consistente, sempre rotulado hipótese", () => {
+    // 90 dias diários; a cada 5 dias, o dia anterior é marcado "alcohol" e
+    // o peso do dia seguinte recebe um empurrão de +0.8kg.
+    const series = makeSeries({ days: 90, startKg: 90, slopeKgPerDay: 0, noiseSd: 0.15, seed: 31 });
+    const markedDates = new Set();
+    series.forEach((w, i) => { if (i % 5 === 0 && i > 0) markedDates.add(series[i - 1].date); });
+    const markers = [...markedDates].map((date) => ({ date, alcohol: true }));
+    const boosted = series.map((w, i) =>
+      i > 0 && markedDates.has(series[i - 1].date) ? { ...w, weight: +(w.weight + 0.8).toFixed(2) } : w
+    );
+    const ctx = ctxFor(boosted, undefined, [], markers);
+    const effect = runInsights(ctx).find((i) => i.ruleId === "marker-effect");
+    expect(effect).toBeTruthy();
+    expect(effect.confianca).toBe("hipotese");
+  });
+
+  it("não dispara com menos de 8 dias marcados", () => {
+    const series = makeSeries({ days: 90, startKg: 90, slopeKgPerDay: 0, noiseSd: 0.2, seed: 32 });
+    const markers = series.slice(0, 5).map((w) => ({ date: w.date, trained: true }));
+    const ctx = ctxFor(series, undefined, [], markers);
+    expect(runInsights(ctx).some((i) => i.ruleId === "marker-effect")).toBe(false);
+  });
+
+  it("sem nenhum marcador, a regra fica em silêncio", () => {
+    const series = makeSeries({ days: 90, startKg: 90, slopeKgPerDay: 0, noiseSd: 0.2, seed: 33 });
+    const ctx = ctxFor(series, undefined, [], []);
+    expect(runInsights(ctx).some((i) => i.ruleId === "marker-effect")).toBe(false);
   });
 });
 

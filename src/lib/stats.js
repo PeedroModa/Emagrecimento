@@ -308,6 +308,34 @@ export function oneSampleTTest(values, { mu0 = 0, confidence = 0.95 } = {}) {
   return { n, mean: m, sd: sdVal, se, t, df, tCrit, pValue, ci: [m - tCrit * se, m + tCrit * se], significant: pValue < 1 - confidence };
 }
 
+// Teste t de Welch: compara as médias de dois grupos SEM assumir variâncias
+// iguais (o caso comum aqui — "dias com marcador" vs. "dias sem marcador"
+// quase nunca têm a mesma dispersão). Graus de liberdade por
+// Welch–Satterthwaite. Retorna null com qualquer grupo tendo n<2.
+export function welchTTest(a, b, { confidence = 0.95 } = {}) {
+  if (a.length < 2 || b.length < 2) return null;
+  const meanA = mean(a), meanB = mean(b);
+  const sdA = sd(a, { sample: true }), sdB = sd(b, { sample: true });
+  const nA = a.length, nB = b.length;
+  const varA = sdA * sdA / nA, varB = sdB * sdB / nB;
+  const se = Math.sqrt(varA + varB);
+  const diff = meanA - meanB;
+  if (!(se > 0)) {
+    const eq = diff === 0;
+    return { nA, nB, meanA, meanB, diff, sdA, sdB, se: 0, t: eq ? 0 : Infinity, df: nA + nB - 2, tCrit: null, pValue: eq ? 1 : 0, ci: [diff, diff], significant: !eq, cohensD: null };
+  }
+  const t = diff / se;
+  const df = (varA + varB) ** 2 / (varA ** 2 / (nA - 1) + varB ** 2 / (nB - 1));
+  const tCrit = tCritical(df, confidence);
+  const pValue = pFromT(t, df);
+  const pooledSd = Math.sqrt(((nA - 1) * sdA * sdA + (nB - 1) * sdB * sdB) / (nA + nB - 2));
+  const cohensD = pooledSd > 0 ? +(diff / pooledSd).toFixed(2) : null;
+  return {
+    nA, nB, meanA, meanB, diff, sdA, sdB, se, t, df, tCrit, pValue,
+    ci: [diff - tCrit * se, diff + tCrit * se], significant: pValue < 1 - confidence, cohensD,
+  };
+}
+
 // ── Correção de Holm-Bonferroni para múltiplos testes ───────────────────
 // Step-down: ordena por p crescente, cada um multiplicado pelo número de
 // hipóteses restantes, com monotonicidade forçada (p-ajustado nunca cai

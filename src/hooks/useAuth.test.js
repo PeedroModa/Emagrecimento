@@ -9,6 +9,7 @@ vi.mock("./useSettings.js", () => ({ clearSettingsCache: () => {} }));
 vi.mock("./useAppState.js", () => ({ clearAppStateCache: () => {} }));
 vi.mock("./useInsightState.js", () => ({ clearInsightStateCache: () => {} }));
 vi.mock("./useMeasurements.js", () => ({ clearMeasurementsCache: () => {} }));
+vi.mock("./useDayMarkers.js", () => ({ clearDayMarkersCache: () => {} }));
 
 const { mustChangePassword, interpretSignUpResult } = await import("./useAuth.js");
 

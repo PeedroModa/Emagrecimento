@@ -578,6 +578,17 @@ button:disabled { cursor: default; opacity: .55; }
 .cmp-diff { font-family: var(--font-mono); font-size: 1.1rem; font-weight: 700; margin-left: auto; }
 .cmp-empty { font-size: .85rem; color: var(--t3); }
 
+/* ── V2: marcadores casuais do dia (Hoje) ── */
+.marker-chips { display: flex; gap: .5rem; flex-wrap: wrap; }
+.marker-chip {
+  background: var(--card2); border: 1px solid var(--bdr); color: var(--t2);
+  font-family: var(--font-condensed); font-size: .8rem; letter-spacing: .02em;
+  border-radius: 999px; padding: .45rem 1rem; cursor: pointer; transition: all .15s;
+  min-height: 36px;
+}
+.marker-chip:hover { border-color: var(--t2); color: var(--t1); }
+.marker-chip.active { background: rgba(134,162,179,.16); border-color: #86A2B3; color: #86A2B3; }
+
 /* responsive tweaks */
 @media (max-width: 600px) {
   .page-title { font-size: 1.6rem; }

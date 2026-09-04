@@ -111,6 +111,32 @@ create index if not exists body_measurements_user_date_idx on body_measurements 
 create trigger body_measurements_touch before update on body_measurements
   for each row execute function set_updated_at();
 
+-- Marcadores casuais do dia (V2, Etapa 6) — opcionais, um toque só. NULL
+-- numa coluna é "não respondeu", não "não aconteceu": essa distinção
+-- impede o motor de insights de tratar silêncio como resposta negativa.
+create table if not exists day_markers (
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  date          date not null,
+  trained       boolean,
+  alcohol       boolean,
+  high_sodium   boolean,
+  travel        boolean,
+  slept_badly   boolean,
+  extra_tags    text[],
+  note          text check (char_length(note) <= 120),
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  primary key (user_id, date),
+  check (
+    num_nonnulls(trained, alcohol, high_sodium, travel, slept_badly) > 0
+    or coalesce(array_length(extra_tags, 1), 0) > 0
+    or note is not null
+  )
+);
+
+create trigger day_markers_touch before update on day_markers
+  for each row execute function set_updated_at();
+
 -- ============================================================
 -- Row Level Security: cada usuário só enxerga os próprios dados.
 -- A segurança fica no banco, não na interface.
@@ -121,6 +147,7 @@ alter table user_settings enable row level security;
 alter table user_app_state enable row level security;
 alter table insight_state enable row level security;
 alter table body_measurements enable row level security;
+alter table day_markers enable row level security;
 
 -- weigh_ins
 create policy "weigh_ins_select_own" on weigh_ins
@@ -185,4 +212,17 @@ create policy "body_measurements_update_own" on body_measurements
   for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "body_measurements_delete_own" on body_measurements
+  for delete using (auth.uid() = user_id);
+
+-- day_markers
+create policy "day_markers_select_own" on day_markers
+  for select using (auth.uid() = user_id);
+
+create policy "day_markers_insert_own" on day_markers
+  for insert with check (auth.uid() = user_id);
+
+create policy "day_markers_update_own" on day_markers
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "day_markers_delete_own" on day_markers
   for delete using (auth.uid() = user_id);
