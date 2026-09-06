@@ -674,6 +674,10 @@ describe("computeProjection — projeção da tendência na curva de peso", () =
     expect(proj.goalCrossX).toBeGreaterThan(99);
     expect(proj.goalCrossX).toBeLessThan(101);
 
+    // data prevista da meta: ISO válida, depois da última pesagem
+    expect(proj.goalDateISO).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(proj.goalDateISO > logs[logs.length - 1].date).toBe(true);
+
     // faixa de confiança cerca a linha central
     for (const p of proj.line) {
       expect(p.lo).toBeLessThanOrEqual(p.y);
@@ -707,6 +711,7 @@ describe("computeProjection — projeção da tendência na curva de peso", () =
     expect(proj.reachesGoal).toBe(false);
     expect(proj.weeksToGoal).toBeNull();
     expect(proj.goalCrossX).toBeNull();
+    expect(proj.goalDateISO).toBeNull();
     // horizonte respeita o teto (nunca além de PROJECTION_MAX_WEEKS)
     const forwardDays = proj.line[proj.line.length - 1].x - proj.anchorX;
     expect(forwardDays).toBeLessThanOrEqual(PROJECTION_MAX_WEEKS * 7);

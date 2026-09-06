@@ -211,7 +211,7 @@ export default function Jornada() {
       <Comparator weighIns={weighIns} />
 
       <TrendCard
-        trend={trend} goal={goal} windowDays={windowDays}
+        trend={trend} goal={goal} windowDays={windowDays} projection={projection}
         rateChange={rateChange} showTagPrompt={showTrendPrompt}
         onSaveContext={handleSaveContext} onSkipContext={handleSkipContext}
       />

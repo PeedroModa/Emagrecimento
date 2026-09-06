@@ -8,9 +8,16 @@ const RATE_ICONS = { rising: TrendingUp, below: Minus, fast: AlertTriangle, heal
 // só que resumida, já que o .text de cada categoria é uma frase completa (não encadeia bem).
 const RATE_LABELS = { rising: "ganho de peso", below: "ritmo abaixo do esperado", fast: "ritmo acelerado demais", healthy: "ritmo saudável" };
 
-export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS, rateChange, showTagPrompt, onSaveContext, onSkipContext }) {
+function fmtGoalDate(iso) {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS, projection = null, rateChange, showTagPrompt, onSaveContext, onSkipContext }) {
   if (!trend) return null;
   const semanas = regressionWeeksFor(windowDays);
+  // Projeção "fraca": a reta explica menos da metade da variação das pesagens
+  // na janela (r² < 0,5) — ritmo ruidoso ou quase plano, projeção pouco confiável.
+  const weakProjection = projection && projection.r2 != null && projection.r2 < 0.5;
   const status = rateStatus(trend);
   const Icon = RATE_ICONS[status.key];
   const markerLeft = trendGaugePercent(trend.lossPerWeek);
@@ -52,8 +59,13 @@ export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS, r
           <div style={{ textAlign: "right" }}>
             <div className="card-label" style={{ marginBottom: 4 }}>Neste ritmo</div>
             <div style={{ fontSize: ".9rem" }}>
-              ~<span className="num" style={{ fontWeight: 700 }}>{trend.weeksToGoal}</span> semanas até <span className="num">{goal} kg</span>
+              ~<span className="num" style={{ fontWeight: 700 }}>{projection?.weeksToGoal ?? trend.weeksToGoal}</span> semanas até <span className="num">{goal} kg</span>
             </div>
+            {projection?.goalDateISO && (
+              <div style={{ fontSize: ".8rem", color: "var(--t2)", marginTop: 2 }}>
+                por volta de <span className="num">{fmtGoalDate(projection.goalDateISO)}</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -82,6 +94,22 @@ export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS, r
         <div style={{ display: "flex", gap: 6, marginTop: 8, fontSize: ".76rem", color: "var(--t3)" }}>
           <Info size={13} style={{ flexShrink: 0, marginTop: 2 }} />
           <span>Só {trend.sample} pesagens nesse período — a tendência fica confiável a partir de 4.</span>
+        </div>
+      )}
+
+      {projection && (
+        <div style={{ display: "flex", gap: 6, marginTop: 8, fontSize: ".76rem", color: "var(--t3)", lineHeight: 1.45 }}>
+          <Info size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+          <span>
+            {weakProjection && (
+              <>
+                Ajuste fraco da reta (R² {String(projection.r2).replace(".", ",")}, {projection.n} pesagens)
+                {" "}— confiança baixa.{" "}
+              </>
+            )}
+            A linha do gráfico assume que esse ritmo se mantém — não prevê platô nem aceleração perto da meta.
+            {!projection.reachesGoal && ` Neste ritmo a meta fica além do horizonte projetado (~${Math.round(projection.horizonDays / 7)} semanas).`}
+          </span>
         </div>
       )}
 

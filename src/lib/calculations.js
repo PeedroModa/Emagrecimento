@@ -324,6 +324,7 @@ export function computeProjection(sortedWeights, goal, windowDays = TREND_WINDOW
     line,
     anchorX: x0,
     goalCrossX: reachesGoal ? +(x0 + daysToGoal).toFixed(1) : null,
+    goalDateISO: reachesGoal ? addDaysISO(first, Math.round(x0 + daysToGoal)) : null,
     reachesGoal,
     weeksToGoal: reachesGoal ? Math.ceil(daysToGoal / 7) : null,
     slopePerWeek,
