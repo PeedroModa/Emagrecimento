@@ -245,6 +245,94 @@ export function computeTrend(sortedWeights, goal, heightCm, windowDays = TREND_W
   return { perWeek, lossPerWeek, weeksToGoal, sample: pts.length, projection, compAvailable };
 }
 
+// Teto do horizonte de projeção da curva de peso (Jornada). Não se extrapola
+// além de ~6 meses: além disso a incerteza da reta domina e o número vira
+// ficção. O piso (8 semanas) garante que a projeção sempre apareça com algum
+// comprimento útil quando existe.
+export const PROJECTION_MAX_WEEKS = 26;
+export const PROJECTION_MIN_WEEKS = 8;
+export const PROJECTION_MIN_POINTS = 4;
+
+// Projeta a tendência de peso para frente, para desenhar no gráfico da Jornada.
+// Mesma janela de regressão do card de tendência (regressionWindowFor), ancorada
+// na última pesagem REAL — assim a linha sai do último ponto visível da curva e
+// as "semanas até a meta" batem com o que o TrendCard anuncia.
+//
+// Retorna null (e o gráfico fica igual a hoje) quando não há base para projetar:
+// menos de PROJECTION_MIN_POINTS pesagens na janela, tendência plana ou de ganho
+// (mesmo limiar de 0.05 kg/sem do computeTrend), ou meta já atingida.
+//
+// `line`: pontos semanais { x, y, lo, hi } — x em dias desde a 1ª pesagem (a
+// mesma escala do eixo do WeightChart); lo/hi = faixa de confiança da reta
+// (predictCi), recentrada na linha ancorada.
+export function computeProjection(sortedWeights, goal, windowDays = TREND_WINDOW_DAYS) {
+  if (!Array.isArray(sortedWeights) || sortedWeights.length < PROJECTION_MIN_POINTS) return null;
+  if (!(goal > 0)) return null;
+
+  const first = sortedWeights[0].date;
+  const endDate = sortedWeights[sortedWeights.length - 1].date;
+  const currentWeight = sortedWeights[sortedWeights.length - 1].weight;
+  if (currentWeight <= goal) return null;
+
+  const pts = sortedWeights
+    .filter((wgt) => daysBetween(wgt.date, endDate) <= windowDays)
+    .map((wgt) => ({ x: daysBetween(first, wgt.date), y: wgt.weight }));
+  if (pts.length < PROJECTION_MIN_POINTS) return null;
+
+  const fit = ols(pts);
+  if (!fit || fit.df <= 0) return null;
+
+  const slopePerWeek = +(fit.slope * 7).toFixed(2);
+  const lossPerWeek = -slopePerWeek;
+  if (lossPerWeek <= 0.05) return null; // tendência plana ou de ganho: não projeta
+
+  const x0 = daysBetween(first, endDate);
+  const y0 = currentWeight;
+
+  // Não extrapolar mais para frente do que se tem de histórico para trás
+  // (span TOTAL das pesagens, não só a janela da regressão), limitado entre
+  // PROJECTION_MIN_WEEKS e PROJECTION_MAX_WEEKS.
+  const historySpanDays = daysBetween(first, endDate);
+  const horizonCapDays = Math.max(
+    PROJECTION_MIN_WEEKS * 7,
+    Math.min(PROJECTION_MAX_WEEKS * 7, historySpanDays)
+  );
+  const daysToGoal = (y0 - goal) / lossPerWeek * 7;
+  const reachesGoal = daysToGoal <= horizonCapDays;
+  const horizonDays = Math.round(Math.min(daysToGoal, horizonCapDays));
+
+  const ciHalfAt = (x) => {
+    const ci = fit.predictCi(x);
+    return ci ? (ci[1] - ci[0]) / 2 : 0;
+  };
+
+  const line = [];
+  const push = (d) => {
+    const y = y0 + fit.slope * d;
+    const half = ciHalfAt(x0 + d);
+    line.push({
+      x: x0 + d,
+      y: +y.toFixed(2),
+      lo: +(y - half).toFixed(2),
+      hi: +(y + half).toFixed(2),
+    });
+  };
+  for (let d = 0; d < horizonDays; d += 7) push(d);
+  push(horizonDays);
+
+  return {
+    line,
+    anchorX: x0,
+    goalCrossX: reachesGoal ? +(x0 + daysToGoal).toFixed(1) : null,
+    reachesGoal,
+    weeksToGoal: reachesGoal ? Math.ceil(daysToGoal / 7) : null,
+    slopePerWeek,
+    r2: fit.r2 != null ? +fit.r2.toFixed(2) : null,
+    n: pts.length,
+    horizonDays,
+  };
+}
+
 // "É real ou ruído?" — compara a variação mais recente contra a variabilidade
 // histórica DO PRÓPRIO usuário.
 //

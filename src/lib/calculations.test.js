@@ -3,6 +3,7 @@ import {
   navyBodyFat, navyBodyFatFull, linearSlope, bmi, bmiCategory, computeRecords, computeSeries, daysBetween,
   computeTrend, computeSignalRead, computeLastChange, computeCalories, computeMacros,
   computeSimulator, rateStatus, activityFactor, ageFromBirthDate, isValidBirthDate, trendRateChange,
+  computeProjection, PROJECTION_MAX_WEEKS, PROJECTION_MIN_POINTS,
   AVG_WINDOW_DAYS, TREND_WINDOW_DAYS, TREND_WINDOW_OPTIONS, regressionWindowFor, regressionWeeksFor,
   RATE_HEALTHY, trendGaugePercent,
 } from "./calculations.js";
@@ -649,5 +650,66 @@ describe("computeTrend — kg/semana acompanha a janela selecionada", () => {
     const padrao = computeTrend(logs, 90, 175);
     expect(padrao).toEqual(computeTrend(logs, 90, 175, TREND_WINDOW_DAYS));
     expect(padrao).toEqual(computeTrend(logs, 90, 175, regressionWindowFor(AVG_WINDOW_DAYS)));
+  });
+});
+
+describe("computeProjection — projeção da tendência na curva de peso", () => {
+  it("queda constante: crava a data da meta e ancora na última pesagem real", () => {
+    const logs = weeklyLogs(12, "2026-01-01", (i) => 100 - i * 0.7); // -0,7 kg/sem
+    const proj = computeProjection(logs, 90); // janela padrão (28d) = últimas 5 pesagens
+
+    expect(proj).not.toBeNull();
+    expect(proj.n).toBe(5);
+    expect(proj.slopePerWeek).toBeCloseTo(-0.7, 5);
+    expect(proj.reachesGoal).toBe(true);
+    // resta 2,3 kg a 0,7 kg/sem -> 3,29 semanas -> arredonda pra cima
+    expect(proj.weeksToGoal).toBe(4);
+
+    // ancora exatamente no último ponto real da curva
+    expect(proj.anchorX).toBe(77); // 11 semanas * 7 dias
+    expect(proj.line[0].x).toBe(77);
+    expect(proj.line[0].y).toBeCloseTo(92.3, 2);
+
+    // cruzamento da meta ~ 23 dias à frente da âncora
+    expect(proj.goalCrossX).toBeGreaterThan(99);
+    expect(proj.goalCrossX).toBeLessThan(101);
+
+    // faixa de confiança cerca a linha central
+    for (const p of proj.line) {
+      expect(p.lo).toBeLessThanOrEqual(p.y);
+      expect(p.hi).toBeGreaterThanOrEqual(p.y);
+    }
+  });
+
+  it("tendência plana não projeta (mesmo limiar de 0,05 kg/sem do computeTrend)", () => {
+    expect(computeProjection(weeklyLogs(12, "2026-01-01", () => 95), 90)).toBeNull();
+  });
+
+  it("tendência de ganho não projeta", () => {
+    expect(computeProjection(weeklyLogs(12, "2026-01-01", (i) => 90 + i * 0.3), 80)).toBeNull();
+  });
+
+  it("menos de PROJECTION_MIN_POINTS pesagens: retorna null (gráfico fica como hoje)", () => {
+    const logs = weeklyLogs(3, "2026-01-01", (i) => 100 - i * 0.7);
+    expect(logs.length).toBeLessThan(PROJECTION_MIN_POINTS);
+    expect(computeProjection(logs, 90)).toBeNull();
+  });
+
+  it("peso já na meta ou abaixo: nada a projetar", () => {
+    expect(computeProjection(weeklyLogs(12, "2026-01-01", (i) => 100 - i * 2), 90)).toBeNull();
+  });
+
+  it("queda lenta demais para alcançar a meta no horizonte: linha sem marcador de meta", () => {
+    const logs = weeklyLogs(12, "2026-01-01", (i) => 100 - i * 0.1); // -0,1 kg/sem
+    const proj = computeProjection(logs, 90);
+
+    expect(proj).not.toBeNull();
+    expect(proj.reachesGoal).toBe(false);
+    expect(proj.weeksToGoal).toBeNull();
+    expect(proj.goalCrossX).toBeNull();
+    // horizonte respeita o teto (nunca além de PROJECTION_MAX_WEEKS)
+    const forwardDays = proj.line[proj.line.length - 1].x - proj.anchorX;
+    expect(forwardDays).toBeLessThanOrEqual(PROJECTION_MAX_WEEKS * 7);
+    expect(proj.line.length).toBeGreaterThanOrEqual(2);
   });
 });

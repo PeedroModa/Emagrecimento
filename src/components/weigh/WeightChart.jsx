@@ -13,7 +13,7 @@ import { daysBetween, addDaysISO, fmtDateBR } from "../../lib/calculations.js";
 // torna um buraco real um buraco visível.
 Chart.register(LineController, LineElement, PointElement, LinearScale, Tooltip, Legend, Filler);
 
-export default function WeightChart({ series, goal, windowDays = 27 }) {
+export default function WeightChart({ series, goal, windowDays = 27, projection = null }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
 
@@ -24,10 +24,79 @@ export default function WeightChart({ series, goal, windowDays = 27 }) {
     const pesos = series.map((s) => ({ x: toX(s.date), y: s.peso }));
     const medias = series.filter((s) => s.media != null).map((s) => ({ x: toX(s.date), y: s.media }));
     const lastX = toX(series[series.length - 1].date);
-    const metaLine = [{ x: 0, y: goal }, { x: lastX, y: goal }];
+
+    // Projeção: a linha continua da última pesagem real, com a faixa de
+    // confiança da reta atrás dela. Datasets internos da faixa levam prefixo
+    // "__" e são filtrados da legenda e do tooltip.
+    const proj = projection && projection.line?.length >= 2 ? projection : null;
+    const projEndX = proj ? proj.line[proj.line.length - 1].x : lastX;
+    const maxX = Math.max(lastX, projEndX);
+    const metaLine = [{ x: 0, y: goal }, { x: maxX, y: goal }];
+
+    // Escala Y ancorada nos dados reais + meta + centro da projeção — NÃO na
+    // faixa de confiança, que abre muito longe no tempo e, se entrasse na
+    // conta, achataria a curva. A faixa simplesmente corta na borda.
+    const yValues = [
+      ...pesos.map((p) => p.y),
+      ...medias.map((m) => m.y),
+      ...(proj ? proj.line.map((p) => p.y) : []),
+      goal,
+    ];
+    const yMin = Math.floor(Math.min(...yValues) - 1);
+    const yMax = Math.ceil(Math.max(...yValues) + 1);
+
+    const projDatasets = proj
+      ? [
+          {
+            label: "__projLo",
+            data: proj.line.map((p) => ({ x: p.x, y: p.lo })),
+            parsing: false,
+            borderColor: "transparent",
+            pointRadius: 0,
+            borderWidth: 0,
+          },
+          {
+            label: "__projHi",
+            data: proj.line.map((p) => ({ x: p.x, y: p.hi })),
+            parsing: false,
+            borderColor: "transparent",
+            backgroundColor: "rgba(91,123,140,0.10)",
+            pointRadius: 0,
+            borderWidth: 0,
+            fill: "-1",
+          },
+          {
+            label: "Projeção",
+            data: proj.line.map((p) => ({ x: p.x, y: p.y })),
+            parsing: false,
+            borderColor: "#8AA6B3",
+            pointRadius: 0,
+            borderWidth: 2,
+            borderDash: [3, 3],
+            tension: 0,
+          },
+          ...(proj.reachesGoal && proj.goalCrossX != null
+            ? [
+                {
+                  label: "Meta prevista",
+                  data: [{ x: proj.goalCrossX, y: goal }],
+                  parsing: false,
+                  showLine: false,
+                  borderColor: "#C9A24B",
+                  pointBackgroundColor: "#C9A24B",
+                  pointBorderColor: "#C9A24B",
+                  pointRadius: 6,
+                  pointHoverRadius: 8,
+                  pointStyle: "rectRot",
+                },
+              ]
+            : []),
+        ]
+      : [];
 
     const data = {
       datasets: [
+        ...projDatasets,
         {
           label: "Peso",
           data: pesos,
@@ -76,6 +145,7 @@ export default function WeightChart({ series, goal, windowDays = 27 }) {
             color: "#8B8F92",
             font: { family: "'Barlow Condensed', sans-serif", size: 12 },
             boxWidth: 18, boxHeight: 2, padding: 14,
+            filter: (item) => !item.text?.startsWith("__"),
           },
         },
         tooltip: {
@@ -86,6 +156,7 @@ export default function WeightChart({ series, goal, windowDays = 27 }) {
           bodyColor: "#8B8F92",
           bodyFont: { family: "'JetBrains Mono', monospace", size: 12 },
           titleFont: { family: "'Barlow Condensed', sans-serif", size: 13 },
+          filter: (item) => !item.dataset?.label?.startsWith("__"),
           callbacks: {
             title: (items) => (items.length ? fmtDateBR(addDaysISO(t0, items[0].parsed.x)) : ""),
             label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(1) : "--"} kg`,
@@ -103,6 +174,8 @@ export default function WeightChart({ series, goal, windowDays = 27 }) {
           },
         },
         y: {
+          min: yMin,
+          max: yMax,
           grid: { color: "rgba(255,255,255,0.04)" },
           ticks: { color: "#5A5E60", font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: (v) => `${v} kg` },
         },
@@ -116,13 +189,21 @@ export default function WeightChart({ series, goal, windowDays = 27 }) {
     } else {
       chartRef.current = new Chart(canvasRef.current, { type: "line", data, options });
     }
-  }, [series, goal, windowDays]);
+  }, [series, goal, windowDays, projection]);
 
   useEffect(() => () => { chartRef.current?.destroy(); chartRef.current = null; }, []);
 
+  const ariaLabel =
+    `Gráfico de evolução do peso com linha de tendência de ${windowDays} dias e linha da meta, eixo temporal proporcional` +
+    (projection?.line?.length
+      ? projection.reachesGoal
+        ? `. Projeção da tendência à frente cruza a meta em cerca de ${projection.weeksToGoal} semanas.`
+        : `. Projeção da tendência à frente não alcança a meta dentro do horizonte exibido.`
+      : "");
+
   return (
     <div className="chart-wrap">
-      <canvas ref={canvasRef} role="img" aria-label={`Gráfico de evolução do peso com linha de tendência de ${windowDays} dias e linha da meta, eixo temporal proporcional`} />
+      <canvas ref={canvasRef} role="img" aria-label={ariaLabel} />
     </div>
   );
 }

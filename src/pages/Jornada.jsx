@@ -5,7 +5,7 @@ import { useWeighIns } from "../hooks/useWeighIns.js";
 import { useSettings } from "../hooks/useSettings.js";
 import { useMeasurements } from "../hooks/useMeasurements.js";
 import {
-  computeSeries, computeTrend, computeRecords, fmtDateBR,
+  computeSeries, computeTrend, computeRecords, computeProjection, fmtDateBR,
   AVG_WINDOW_DAYS, TREND_WINDOW_OPTIONS, regressionWindowFor, trendRateChange,
 } from "../lib/calculations.js";
 import WeightChart from "../components/weigh/WeightChart.jsx";
@@ -48,6 +48,10 @@ export default function Jornada() {
   const trend = useMemo(
     () => computeTrend(weighIns, goal, settings.height_cm, regressionWindowFor(windowDays)),
     [weighIns, goal, settings.height_cm, windowDays]
+  );
+  const projection = useMemo(
+    () => computeProjection(weighIns, goal, regressionWindowFor(windowDays)),
+    [weighIns, goal, windowDays]
   );
   const records = useMemo(() => computeRecords(weighIns), [weighIns]);
 
@@ -177,7 +181,7 @@ export default function Jornada() {
       {/* Gráfico de linha */}
       <div className="card">
         <div className="flex-between" style={{ gap: 12, flexWrap: "wrap" }}>
-          <SectionHeader title="Curva de peso" subtitle={`peso · tendência de ${windowDays} dias · linha da meta`} />
+          <SectionHeader title="Curva de peso" subtitle={`peso · tendência de ${windowDays} dias${projection ? " · projeção" : ""} · linha da meta`} />
           <label className="trend-window">
             <span>Tendência:</span>
             <select
@@ -192,7 +196,7 @@ export default function Jornada() {
           </label>
         </div>
         {series.length >= 2 ? (
-          <WeightChart series={series} goal={goal} windowDays={windowDays} />
+          <WeightChart series={series} goal={goal} windowDays={windowDays} projection={projection} />
         ) : (
           <EmptyState
             icon={<LineChart size={28} />}
