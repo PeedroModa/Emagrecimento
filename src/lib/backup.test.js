@@ -98,18 +98,18 @@ describe("parseImportJSON — validação de entrada", () => {
 });
 
 describe("parseImportJSON — perfil completo (settings v2)", () => {
-  it("lê os 12 campos de settings quando presentes e válidos", () => {
+  it("lê os 13 campos de settings quando presentes e válidos", () => {
     const res = parseImportJSON(JSON.stringify({
       version: 2,
       weightLogs: [{ date: "2026-01-01", weight: 80 }],
       settings: {
-        goal_kg: 75, bf_target: 15, height_cm: 178, birth_date: "1998-05-20", sex: "F",
+        goal_kg: 75, bf_target: 15, goal_date: "2027-03-15", height_cm: 178, birth_date: "1998-05-20", sex: "F",
         train_days: 4, deficit_pct: 20, macro_mode: "weight",
         macro_prot_pct: 30, macro_fat_pct: 25, macro_prot_per_kg: 2.2, macro_fat_per_kg: 0.8,
       },
     }));
     expect(res.settings).toEqual({
-      goal_kg: 75, bf_target: 15, height_cm: 178, birth_date: "1998-05-20", sex: "F",
+      goal_kg: 75, bf_target: 15, goal_date: "2027-03-15", height_cm: 178, birth_date: "1998-05-20", sex: "F",
       train_days: 4, deficit_pct: 20, macro_mode: "weight",
       macro_prot_pct: 30, macro_fat_pct: 25, macro_prot_per_kg: 2.2, macro_fat_per_kg: 0.8,
     });
@@ -179,7 +179,7 @@ describe("buildExportJSON — nada além dos próprios dados entra no arquivo", 
   it("exporta version 2 com o perfil completo em settings, sem vazar identificadores internos", () => {
     const weighIns = [{ id: "abc", date: "2026-01-01", weight: 80, waist: 90, neck: 38, note: "ok" }];
     const settings = {
-      goal_kg: 75, bf_target: 15, height_cm: 178, birth_date: "1998-05-20", sex: "F",
+      goal_kg: 75, bf_target: 15, goal_date: "2027-03-15", height_cm: 178, birth_date: "1998-05-20", sex: "F",
       train_days: 4, deficit_pct: 20, macro_mode: "pct",
       macro_prot_pct: 30, macro_fat_pct: 30, macro_prot_per_kg: 2, macro_fat_per_kg: 0.9,
     };
@@ -193,7 +193,7 @@ describe("buildExportJSON — nada além dos próprios dados entra no arquivo", 
   it("round-trip: o que é exportado é lido de volta identicamente por parseImportJSON", () => {
     const weighIns = [{ id: "abc", date: "2026-01-01", weight: 80 }];
     const settings = {
-      goal_kg: 75, bf_target: 15, height_cm: 178, birth_date: "1998-05-20", sex: "F",
+      goal_kg: 75, bf_target: 15, goal_date: "2027-03-15", height_cm: 178, birth_date: "1998-05-20", sex: "F",
       train_days: 4, deficit_pct: 20, macro_mode: "pct",
       macro_prot_pct: 30, macro_fat_pct: 30, macro_prot_per_kg: 2, macro_fat_per_kg: 0.9,
     };

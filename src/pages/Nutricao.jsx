@@ -1,9 +1,12 @@
+import { useMemo } from "react";
 import { useAuth } from "../hooks/useAuth.js";
 import { useWeighIns } from "../hooks/useWeighIns.js";
 import { useSettings } from "../hooks/useSettings.js";
+import { computeMetabolicAdaptation } from "../lib/coaching.js";
 import CaloriesCard from "../components/nutrition/CaloriesCard.jsx";
 import MacrosCard from "../components/nutrition/MacrosCard.jsx";
 import SimulatorCard from "../components/nutrition/SimulatorCard.jsx";
+import MetabolicAdaptationCard from "../components/nutrition/MetabolicAdaptationCard.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 
 export default function Nutricao() {
@@ -13,6 +16,7 @@ export default function Nutricao() {
 
   const hasWeights = weighIns.length > 0;
   const currentWeight = hasWeights ? weighIns[weighIns.length - 1].weight : null;
+  const adaptation = useMemo(() => computeMetabolicAdaptation(weighIns, settings), [weighIns, settings]);
 
   if (loadingW || loadingS) {
     return (
@@ -56,6 +60,7 @@ export default function Nutricao() {
       )}
 
       <CaloriesCard settings={settings} currentWeight={currentWeight} hasWeights={hasWeights} />
+      {adaptation && <MetabolicAdaptationCard adaptation={adaptation} />}
       <MacrosCard settings={settings} onChange={onChange} currentWeight={currentWeight} hasWeights={hasWeights} />
       <SimulatorCard hasWeights={hasWeights} currentWeight={currentWeight} goal={settings.goal_kg} />
     </div>

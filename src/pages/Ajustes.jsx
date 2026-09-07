@@ -128,13 +128,31 @@ export default function Ajustes() {
       )}
 
       <div className="card">
-        <SectionHeader title="Metas" subtitle="peso alvo e % de gordura desejado" />
-        <div className="flex-row" style={{ gap: 16 }}>
+        <SectionHeader title="Metas" subtitle="peso alvo, % de gordura e uma data-alvo opcional" />
+        <div className="flex-row" style={{ gap: 16, alignItems: "flex-end" }}>
           <NumField label="peso meta" value={settings.goal_kg} suffix="kg"
             onCommit={(v) => v > 0 && v <= 400 && set({ goal_kg: +v.toFixed(1) })} />
           <NumField label="% gordura alvo" value={settings.bf_target} suffix="%"
             onCommit={(v) => v > 0 && v <= 60 && set({ bf_target: +v.toFixed(1) })} />
+          <label style={{ width: 190 }}>
+            <span className="small-label">data-alvo (opcional)</span>
+            <input
+              type="date" value={(settings.goal_date || "").slice(0, 10)}
+              min={todayISO()}
+              onChange={(e) => set({ goal_date: e.target.value || null })}
+            />
+            <span style={{ fontSize: ".76rem", color: "var(--t3)", display: "block", marginTop: 3 }}>
+              {settings.goal_date
+                ? "compara o plano com a projeção da tendência"
+                : "sem data, o app só projeta a tendência"}
+            </span>
+          </label>
         </div>
+        {settings.goal_date && (
+          <button className="btn-ghost" style={{ marginTop: 8 }} onClick={() => set({ goal_date: null })}>
+            limpar data-alvo
+          </button>
+        )}
       </div>
 
       <div className="card">

@@ -5,6 +5,7 @@ import { ageFromBirthDate } from "../lib/calculations.js";
 export const DEFAULT_SETTINGS = {
   goal_kg: 90,
   bf_target: 15,
+  goal_date: null,
   height_cm: 175,
   birth_date: null,
   age: 28,

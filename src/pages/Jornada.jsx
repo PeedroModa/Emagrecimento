@@ -5,9 +5,10 @@ import { useWeighIns } from "../hooks/useWeighIns.js";
 import { useSettings } from "../hooks/useSettings.js";
 import { useMeasurements } from "../hooks/useMeasurements.js";
 import {
-  computeSeries, computeTrend, computeRecords, computeProjection, fmtDateBR,
+  computeSeries, computeTrend, computeRecords, computeProjection, fmtDateBR, todayISO,
   AVG_WINDOW_DAYS, TREND_WINDOW_OPTIONS, regressionWindowFor, trendRateChange,
 } from "../lib/calculations.js";
+import { computePlateau, computeGoalPace } from "../lib/coaching.js";
 import WeightChart from "../components/weigh/WeightChart.jsx";
 import TrendCard from "../components/weigh/TrendCard.jsx";
 import RecordsCard from "../components/weigh/RecordsCard.jsx";
@@ -16,6 +17,7 @@ import ProgressionBars from "../components/weigh/ProgressionBars.jsx";
 import HistoryList from "../components/weigh/HistoryList.jsx";
 import Comparator from "../components/weigh/Comparator.jsx";
 import JourneyTimeline from "../components/weigh/JourneyTimeline.jsx";
+import PlateauCard from "../components/weigh/PlateauCard.jsx";
 import MeasurementForm from "../components/weigh/MeasurementForm.jsx";
 import BodyMap from "../components/weigh/BodyMap.jsx";
 import MeasurementHistoryList from "../components/weigh/MeasurementHistoryList.jsx";
@@ -54,6 +56,10 @@ export default function Jornada() {
     [weighIns, goal, windowDays]
   );
   const records = useMemo(() => computeRecords(weighIns), [weighIns]);
+  const plateau = useMemo(
+    () => computePlateau(weighIns, goal, settings.height_cm),
+    [weighIns, goal, settings.height_cm]
+  );
 
   const bfEntries = series.filter((s) => s.bf != null);
   const bfFirst = bfEntries[0];
@@ -67,6 +73,10 @@ export default function Jornada() {
   const sample = bfEntries.length;
 
   const latest = weighIns[weighIns.length - 1];
+  const goalPace = useMemo(
+    () => computeGoalPace({ currentWeight: latest?.weight, goal, goalDateISO: settings.goal_date, projection, today: todayISO() }),
+    [latest, goal, settings.goal_date, projection]
+  );
   const rateChange = windowDays === AVG_WINDOW_DAYS ? trendRateChange(weighIns, goal, settings.height_cm) : null;
   const showTrendPrompt = !!rateChange && latest?.context_tags === null;
 
@@ -208,10 +218,12 @@ export default function Jornada() {
         )}
       </div>
 
+      <PlateauCard plateau={plateau} />
+
       <Comparator weighIns={weighIns} />
 
       <TrendCard
-        trend={trend} goal={goal} windowDays={windowDays} projection={projection}
+        trend={trend} goal={goal} windowDays={windowDays} projection={projection} goalPace={goalPace}
         rateChange={rateChange} showTagPrompt={showTrendPrompt}
         onSaveContext={handleSaveContext} onSkipContext={handleSkipContext}
       />

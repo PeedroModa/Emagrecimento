@@ -14,6 +14,7 @@ export function buildExportJSON(weighIns, settings) {
     settings: {
       goal_kg: settings.goal_kg,
       bf_target: settings.bf_target,
+      goal_date: settings.goal_date ?? null,
       height_cm: settings.height_cm,
       birth_date: settings.birth_date ?? null,
       sex: settings.sex,
@@ -52,9 +53,17 @@ export function downloadJSON(json) {
 
 // Mesmas restrições do banco (supabase/schema.sql) — um arquivo editado à
 // mão não pode chegar ao upsert e estourar um check violation genérico.
+const isPlainDateISO = (v) => {
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const [y, m, d] = v.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+};
+
 const SETTINGS_VALIDATORS = {
   goal_kg: (v) => (typeof v === "number" && v > 0 && v <= 400 ? v : undefined),
   bf_target: (v) => (typeof v === "number" && v > 0 && v <= 60 ? v : undefined),
+  goal_date: (v) => (isPlainDateISO(v) ? v : undefined),
   height_cm: (v) => (Number.isInteger(v) && v >= 100 && v <= 250 ? v : undefined),
   birth_date: (v) => (typeof v === "string" && isValidBirthDate(v) ? v : undefined),
   sex: (v) => (v === "M" || v === "F" ? v : undefined),

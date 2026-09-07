@@ -12,7 +12,32 @@ function fmtGoalDate(iso) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS, projection = null, rateChange, showTagPrompt, onSaveContext, onSkipContext }) {
+// #4 — plano (data-alvo escolhida em Ajustes) vs. projeção da tendência.
+function GoalPaceLine({ pace }) {
+  if (!pace || pace.status === "no-target" || pace.status === "reached") return null;
+  const S = ({ color, children }) => (
+    <div style={{ fontSize: ".78rem", color, marginTop: 4, lineHeight: 1.4 }}>{children}</div>
+  );
+  if (pace.status === "overdue") {
+    return <S color="var(--accent)">data-alvo {fmtGoalDate(pace.goalDateISO)} já passou</S>;
+  }
+  if (pace.status === "no-projection") {
+    return <S color="var(--t3)">plano: <span className="num">{pace.plannedRatePerWeek}</span> kg/sem até {fmtGoalDate(pace.goalDateISO)}</S>;
+  }
+  if (pace.status === "on-track") {
+    return <S color="var(--good)">no ritmo do plano (alvo {fmtGoalDate(pace.goalDateISO)})</S>;
+  }
+  const days = Math.abs(pace.deltaDays);
+  const gap = days >= 21 ? `${Math.round(days / 7)} sem` : `${days} ${days === 1 ? "dia" : "dias"}`;
+  const late = pace.status === "behind";
+  return (
+    <S color={late ? "var(--warn)" : "var(--good)"}>
+      alvo {fmtGoalDate(pace.goalDateISO)} · <span className="num">{gap}</span> {late ? "atrasado" : "adiantado"}
+    </S>
+  );
+}
+
+export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS, projection = null, goalPace = null, rateChange, showTagPrompt, onSaveContext, onSkipContext }) {
   if (!trend) return null;
   const semanas = regressionWeeksFor(windowDays);
   // Projeção "fraca": a reta explica menos da metade da variação das pesagens
@@ -55,17 +80,22 @@ export default function TrendCard({ trend, goal, windowDays = AVG_WINDOW_DAYS, p
             <span style={{ fontSize: ".85rem", color: "var(--t2)" }}>kg / semana</span>
           </div>
         </div>
-        {trend.weeksToGoal && (
+        {(trend.weeksToGoal || (goalPace && goalPace.status !== "no-target" && goalPace.status !== "reached")) && (
           <div style={{ textAlign: "right" }}>
             <div className="card-label" style={{ marginBottom: 4 }}>Neste ritmo</div>
-            <div style={{ fontSize: ".9rem" }}>
-              ~<span className="num" style={{ fontWeight: 700 }}>{projection?.weeksToGoal ?? trend.weeksToGoal}</span> semanas até <span className="num">{goal} kg</span>
-            </div>
+            {trend.weeksToGoal ? (
+              <div style={{ fontSize: ".9rem" }}>
+                ~<span className="num" style={{ fontWeight: 700 }}>{projection?.weeksToGoal ?? trend.weeksToGoal}</span> semanas até <span className="num">{goal} kg</span>
+              </div>
+            ) : (
+              <div style={{ fontSize: ".85rem", color: "var(--t3)" }}>sem previsão de meta</div>
+            )}
             {projection?.goalDateISO && (
               <div style={{ fontSize: ".8rem", color: "var(--t2)", marginTop: 2 }}>
                 por volta de <span className="num">{fmtGoalDate(projection.goalDateISO)}</span>
               </div>
             )}
+            <GoalPaceLine pace={goalPace} />
           </div>
         )}
       </div>

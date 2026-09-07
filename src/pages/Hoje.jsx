@@ -8,9 +8,11 @@ import { useInsightState } from "../hooks/useInsightState.js";
 import { useMeasurements } from "../hooks/useMeasurements.js";
 import { useDayMarkers } from "../hooks/useDayMarkers.js";
 import { computeSignalRead, computeLastChange, fmtDateBR, todayISO } from "../lib/calculations.js";
+import { computeTrendWeight, computeWeeklyReview } from "../lib/coaching.js";
 import { buildInsightContext, runInsights, rankInsights, computeInvestigations } from "../lib/insights/index.js";
 import { parseImportJSON } from "../lib/backup.js";
 import WeighForm from "../components/weigh/WeighForm.jsx";
+import WeeklyReviewCard from "../components/weigh/WeeklyReviewCard.jsx";
 import SignalCard from "../components/weigh/SignalCard.jsx";
 import LastChangeCard from "../components/weigh/LastChangeCard.jsx";
 import SectionHeader from "../components/layout/SectionHeader.jsx";
@@ -43,6 +45,9 @@ export default function Hoje() {
   const [confirm, setConfirm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [heroMode, setHeroMode] = useState(() => {
+    try { return localStorage.getItem("hero-weight-mode") === "trend" ? "trend" : "scale"; } catch { return "scale"; }
+  });
   const fileRef = useRef(null);
 
   const sorted = weighIns; // já vem ordenado por data
@@ -51,6 +56,17 @@ export default function Hoje() {
 
   const signalRead = useMemo(() => computeSignalRead(sorted), [sorted]);
   const lastChange = useMemo(() => computeLastChange(sorted), [sorted]);
+  const trendWeight = useMemo(() => computeTrendWeight(sorted), [sorted]);
+  const weeklyReview = useMemo(
+    () => computeWeeklyReview(sorted, settings, todayISO(), settings.height_cm),
+    [sorted, settings]
+  );
+
+  function pickHeroMode(mode) {
+    setHeroMode(mode);
+    try { localStorage.setItem("hero-weight-mode", mode); } catch { /* modo privado, sem persistência */ }
+  }
+  const showTrendHero = heroMode === "trend" && trendWeight != null;
 
   const insightCtx = useMemo(
     () => buildInsightContext({ weighIns: sorted, settings, measurements, markers, today: todayISO() }),
@@ -176,15 +192,50 @@ export default function Hoje() {
       {hasWeights && (
         <div className="declaration">
           <div className="decl-glow" aria-hidden="true" />
+
+          {trendWeight != null && (
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, marginBottom: 6 }}>
+              {["scale", "trend"].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => pickHeroMode(m)}
+                  aria-pressed={heroMode === m}
+                  style={{
+                    background: heroMode === m ? "var(--hover)" : "transparent",
+                    color: heroMode === m ? "var(--t1)" : "var(--t3)",
+                    border: "1px solid var(--bdr-soft)", borderRadius: 999,
+                    fontFamily: "var(--font-condensed)", fontSize: ".72rem", letterSpacing: ".04em",
+                    textTransform: "uppercase", padding: ".2rem .6rem", cursor: "pointer",
+                  }}
+                >
+                  {m === "scale" ? "balança" : "tendência"}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="decl-row">
-            <span className="decl-num num">{last.weight}</span>
-            <span className="decl-unit">kg</span>
-            {lastChange && (
-              <span className="decl-delta" style={{ color: signalRead.status === "ok" ? signalRead.color : "var(--t2)" }}>
-                {lastChange.diff > 0 ? "+" : ""}{lastChange.diff}kg desde a pesagem anterior
-              </span>
-            )}
+            <span className="decl-num num">{showTrendHero ? trendWeight.current.toFixed(1) : last.weight}</span>
+            <span className="decl-unit">kg{showTrendHero ? " · tendência" : ""}</span>
+            {showTrendHero
+              ? trendWeight.delta != null && (
+                  <span className="decl-delta" style={{ color: trendWeight.delta < 0 ? "var(--good)" : trendWeight.delta > 0 ? "var(--warn)" : "var(--t2)" }}>
+                    {trendWeight.delta > 0 ? "+" : ""}{trendWeight.delta.toFixed(1)}kg de tendência desde a pesagem anterior
+                  </span>
+                )
+              : lastChange && (
+                  <span className="decl-delta" style={{ color: signalRead.status === "ok" ? signalRead.color : "var(--t2)" }}>
+                    {lastChange.diff > 0 ? "+" : ""}{lastChange.diff}kg desde a pesagem anterior
+                  </span>
+                )}
           </div>
+
+          {showTrendHero && (
+            <div style={{ fontSize: ".82rem", color: "var(--t3)", marginTop: 2 }}>
+              balança hoje: <span className="num">{last.weight}</span> kg — a tendência filtra a oscilação diária
+            </div>
+          )}
 
           {signalRead.status === "ok" && (
             <>
@@ -202,6 +253,8 @@ export default function Hoje() {
       )}
 
       <SinceLastVisit previousVisitAt={previousVisitAt} weighIns={sorted} />
+
+      {hasWeights && weeklyReview && <WeeklyReviewCard review={weeklyReview} />}
 
       {/* Onboarding de migração: primeiro acesso com banco vazio */}
       {!hasWeights && (
