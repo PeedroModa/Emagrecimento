@@ -134,6 +134,8 @@ export function computeMetabolicAdaptation(sortedWeights, settings) {
     age: settings?.age,
     sex: settings?.sex,
     trainDays: settings?.train_days,
+    trainMinutes: settings?.train_minutes,
+    neatLevel: settings?.neat_level,
     deficitPct: settings?.deficit_pct,
   };
   const tdeeAt = (weight) => computeCalories({ ...base, currentWeight: weight }).tdee;

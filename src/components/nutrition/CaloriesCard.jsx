@@ -9,8 +9,11 @@ export default function CaloriesCard({ settings, currentWeight, hasWeights }) {
     age: settings.age,
     sex: settings.sex,
     trainDays: settings.train_days,
+    trainMinutes: settings.train_minutes,
+    neatLevel: settings.neat_level,
     deficitPct: settings.deficit_pct,
   });
+  const { neatFactor, exercise } = calories.activity;
 
   return (
     <div className="card">
@@ -34,12 +37,14 @@ export default function CaloriesCard({ settings, currentWeight, hasWeights }) {
 
       <div style={{ marginBottom: 16 }}>
         <div className="small-label">
-          treinos e déficit · <span style={{ color: "var(--good)" }}>{calories.factorLabel} (×{calories.factor})</span>
+          atividade e déficit · <span style={{ color: "var(--good)" }}>×{calories.factor}</span>
         </div>
         <div className="num" style={{ padding: ".6rem .75rem", background: "var(--card2)", borderRadius: 8, fontSize: ".9rem", color: "var(--t2)" }}>
-          {settings.train_days}× por semana · déficit {settings.deficit_pct}%
+          {calories.factorLabel} · {settings.train_days}× {settings.train_minutes}min · déficit {settings.deficit_pct}%
         </div>
-        <div style={{ fontSize: ".7rem", color: "var(--t3)", marginTop: 3 }}>edita em Ajustes</div>
+        <div style={{ fontSize: ".7rem", color: "var(--t3)", marginTop: 3 }}>
+          rotina {neatFactor} {exercise > 0 ? `+ treino ${exercise.toFixed(2)}` : "sem treino"} · edita em Ajustes
+        </div>
       </div>
 
       <div className="flex-row" style={{ gap: 12, borderTop: "1px solid var(--bdr-soft)", paddingTop: 14 }}>
@@ -64,7 +69,7 @@ export default function CaloriesCard({ settings, currentWeight, hasWeights }) {
         <Info size={13} style={{ flexShrink: 0, marginTop: 2 }} />
         <span>
           {hasWeights
-            ? "Estimativa. Recalcula sozinho conforme seu peso cai. Déficit de 15-20% preserva massa magra melhor que cortes agressivos — o valor absoluto importa menos que a consistência semana a semana."
+            ? "Estimativa. O fator de atividade soma sua rotina fora do treino (NEAT) ao volume de treino (dias × minutos) — ajuste os dois em Ajustes. Recalcula sozinho conforme seu peso cai. Déficit de 15-20% preserva massa magra melhor que cortes agressivos — o valor absoluto importa menos que a consistência semana a semana."
             : "Registre uma pesagem para calcular. As calorias usam seu peso atual, que ainda não existe."}
         </span>
       </div>

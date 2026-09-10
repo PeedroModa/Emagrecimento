@@ -6,6 +6,15 @@ function Pill({ active, onClick, children }) {
   return <button type="button" className={"toggle-pill" + (active ? " active" : "")} onClick={onClick}>{children}</button>;
 }
 
+// rótulos curtos (os fatores-base moram em NEAT_LEVELS, calculations.js)
+const NEAT_UI = [
+  { id: "sitting",        short: "sentado" },
+  { id: "mostly_sitting", short: "pouco em pé" },
+  { id: "on_feet",        short: "em pé às vezes" },
+  { id: "active",         short: "muito em pé" },
+  { id: "laborer",        short: "braçal" },
+];
+
 // Primeiro acesso: em vez de herdar em silêncio os defaults de user_settings
 // (que fazem sentido como fallback técnico, mas seriam um perfil errado para
 // um desconhecido), o usuário confirma explicitamente sexo, altura, meta,
@@ -18,6 +27,8 @@ export default function PrimeiroAcesso({ onSave, erroSalvar }) {
   const [height, setHeight] = useState("");
   const [goal, setGoal] = useState("");
   const [trainDays, setTrainDays] = useState(3);
+  const [trainMinutes, setTrainMinutes] = useState(60);
+  const [neatLevel, setNeatLevel] = useState("mostly_sitting");
   const [deficitPct, setDeficitPct] = useState(15);
   const [state, setState] = useState("idle"); // idle | saving | error
   const [errMsg, setErrMsg] = useState("");
@@ -56,6 +67,8 @@ export default function PrimeiroAcesso({ onSave, erroSalvar }) {
       height_cm: Math.round(h),
       goal_kg: +g.toFixed(1),
       train_days: trainDays,
+      train_minutes: trainMinutes,
+      neat_level: neatLevel,
       deficit_pct: deficitPct,
     });
   }
@@ -123,10 +136,31 @@ export default function PrimeiroAcesso({ onSave, erroSalvar }) {
           </div>
 
           <div>
+            <span className="small-label">rotina fora do treino</span>
+            <div className="flex-row" style={{ gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+              {NEAT_UI.map((o) => (
+                <Pill key={o.id} active={neatLevel === o.id} onClick={() => setNeatLevel(o.id)}>{o.short}</Pill>
+              ))}
+            </div>
+            <span style={{ fontSize: ".72rem", color: "var(--t3)", display: "block", marginTop: 3 }}>
+              quanto você se move no dia a dia, fora do treino
+            </span>
+          </div>
+
+          <div>
             <span className="small-label">treinos por semana</span>
-            <div className="flex-row" style={{ gap: 4, marginTop: 4 }}>
+            <div className="flex-row" style={{ gap: 4, marginTop: 4, flexWrap: "wrap" }}>
               {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => (
                 <Pill key={d} active={trainDays === d} onClick={() => setTrainDays(d)}>{d}×</Pill>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <span className="small-label">minutos por treino</span>
+            <div className="flex-row" style={{ gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+              {[30, 45, 60, 75, 90, 120].map((m) => (
+                <Pill key={m} active={trainMinutes === m} onClick={() => setTrainMinutes(m)}>{m}</Pill>
               ))}
             </div>
           </div>

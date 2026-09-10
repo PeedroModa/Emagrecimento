@@ -60,7 +60,8 @@ export default function MacrosCard({ settings, onChange, currentWeight, hasWeigh
   const calories = computeCalories({
     hasWeights, currentWeight,
     height: settings.height_cm, age: settings.age, sex: settings.sex,
-    trainDays: settings.train_days, deficitPct: settings.deficit_pct,
+    trainDays: settings.train_days, trainMinutes: settings.train_minutes,
+    neatLevel: settings.neat_level, deficitPct: settings.deficit_pct,
   });
   const macros = computeMacros({
     hasWeights,

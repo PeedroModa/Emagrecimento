@@ -426,23 +426,62 @@ export function rateStatus(trend) {
   return { key: "healthy", color: "#5B7B8C", text: "Ritmo dentro da faixa saudável para recomposição." };
 }
 
-// Fatores de atividade por treinos/semana (Mifflin-St Jeor)
-export function activityFactor(trainDays) {
-  if (trainDays <= 0) return { factor: 1.2, label: "sedentário" };
-  if (trainDays <= 3) return { factor: 1.375, label: "leve" };
-  if (trainDays <= 5) return { factor: 1.55, label: "moderado" };
-  return { factor: 1.725, label: "intenso" };
+// ── Fator de atividade (NEAT + volume de treino) ────────────────────────────
+// Antes era uma tabela de 4 degraus a partir de "treinos/semana". O problema:
+// "treina 4x" junta quem trabalha sentado e dá poucos passos com quem anda
+// 12 mil passos/dia e trabalha em pé — o gasto total difere centenas de kcal.
+// Agora o fator é MONTADO: uma base de estilo de vida (NEAT) mais um acréscimo
+// pelo volume semanal de treino (dias × minutos). Continua estimativa, mas
+// separa as duas coisas que a tabela misturava.
+export const NEAT_LEVELS = [
+  { id: "sitting",        factor: 1.30, label: "sentado o dia todo, ando pouco" },
+  { id: "mostly_sitting", factor: 1.40, label: "sentado a maior parte, alguma caminhada" },
+  { id: "on_feet",        factor: 1.50, label: "em pé ou andando parte do dia" },
+  { id: "active",         factor: 1.60, label: "em pé ou caminhando quase o dia todo" },
+  { id: "laborer",        factor: 1.70, label: "trabalho físico pesado" },
+];
+export const DEFAULT_NEAT_LEVEL = "mostly_sitting";
+export const DEFAULT_TRAIN_MINUTES = 60;
+
+// Acréscimo do treino ao fator, por minuto-de-sessão somado na semana. ~0,11
+// para 4×60 min/semana de treino de força — já LÍQUIDO do que o corpo gastaria
+// em repouso naquele tempo (a base de NEAT cobre o resto do dia). É uma
+// fração do gasto, então vale aproximadamente igual para corpos de tamanhos
+// diferentes: por isso o fator não depende de peso nem de sexo.
+export const EXERCISE_FRACTION_PER_MIN = 0.00045;
+export const ACTIVITY_FACTOR_MIN = 1.2;
+export const ACTIVITY_FACTOR_MAX = 2.2;
+
+export function neatLevelInfo(id) {
+  return NEAT_LEVELS.find((l) => l.id === id)
+      || NEAT_LEVELS.find((l) => l.id === DEFAULT_NEAT_LEVEL);
+}
+
+// Fator de atividade a partir do estilo de vida (NEAT) e do volume semanal de
+// treino. Todos os argumentos são opcionais e caem em defaults sensatos.
+// Devolve também as parcelas (neatFactor, exercise) para a UI mostrar o porquê.
+export function activityFactor({ neatLevel, trainDays = 0, trainMinutes = DEFAULT_TRAIN_MINUTES } = {}) {
+  const base = neatLevelInfo(neatLevel);
+  const days = Math.max(0, Math.min(7, +trainDays || 0));
+  const min = Math.max(0, Math.min(240, +trainMinutes || 0));
+  const exercise = +(days * min * EXERCISE_FRACTION_PER_MIN).toFixed(3);
+  const factor = +Math.max(
+    ACTIVITY_FACTOR_MIN,
+    Math.min(ACTIVITY_FACTOR_MAX, base.factor + exercise)
+  ).toFixed(3);
+  return { factor, label: base.label, neatLevel: base.id, neatFactor: base.factor, exercise };
 }
 
 // Mifflin-St Jeor -> TDEE -> alvo com déficit
-export function computeCalories({ hasWeights, currentWeight, height, age, sex, trainDays, deficitPct }) {
-  const { factor, label: factorLabel } = activityFactor(trainDays);
-  if (!hasWeights) return { bmr: null, tdee: null, target: null, factor, factorLabel };
+export function computeCalories({ hasWeights, currentWeight, height, age, sex, trainDays, trainMinutes, neatLevel, deficitPct }) {
+  const activity = activityFactor({ neatLevel, trainDays, trainMinutes });
+  const { factor } = activity;
+  if (!hasWeights) return { bmr: null, tdee: null, target: null, factor, factorLabel: activity.label, activity };
   const w = currentWeight, h = +height || DEFAULT_HEIGHT_CM, a = +age || 28;
   const bmr = 10 * w + 6.25 * h - 5 * a + (sex === "M" ? 5 : -161);
   const tdee = bmr * factor;
   const target = tdee * (1 - deficitPct / 100);
-  return { bmr: Math.round(bmr), tdee: Math.round(tdee), target: Math.round(target), factor, factorLabel };
+  return { bmr: Math.round(bmr), tdee: Math.round(tdee), target: Math.round(target), factor, factorLabel: activity.label, activity };
 }
 
 // Macros: 4 kcal/g proteína, 4 kcal/g carbo, 9 kcal/g gordura

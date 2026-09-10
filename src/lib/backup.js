@@ -3,7 +3,7 @@ import { CONTEXT_TAG_IDS } from "./contextTags.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// v2: exporta o perfil inteiro (13 campos de user_settings, menos `age` —
+// v2: exporta o perfil inteiro (15 campos de user_settings, menos `age` —
 // que é só um espelho de birth_date, recalculado no próximo carregamento).
 // Até a v1 só levava goal/bfTarget: um restore em conta nova perdia altura,
 // data de nascimento, sexo, treinos, déficit e macros silenciosamente.
@@ -19,6 +19,8 @@ export function buildExportJSON(weighIns, settings) {
       birth_date: settings.birth_date ?? null,
       sex: settings.sex,
       train_days: settings.train_days,
+      train_minutes: settings.train_minutes,
+      neat_level: settings.neat_level,
       deficit_pct: settings.deficit_pct,
       macro_mode: settings.macro_mode,
       macro_prot_pct: settings.macro_prot_pct,
@@ -68,6 +70,9 @@ const SETTINGS_VALIDATORS = {
   birth_date: (v) => (typeof v === "string" && isValidBirthDate(v) ? v : undefined),
   sex: (v) => (v === "M" || v === "F" ? v : undefined),
   train_days: (v) => (Number.isInteger(v) && v >= 0 && v <= 7 ? v : undefined),
+  train_minutes: (v) => (Number.isInteger(v) && v >= 0 && v <= 240 ? v : undefined),
+  neat_level: (v) =>
+    (["sitting", "mostly_sitting", "on_feet", "active", "laborer"].includes(v) ? v : undefined),
   deficit_pct: (v) => ([10, 15, 20].includes(v) ? v : undefined),
   macro_mode: (v) => (v === "pct" || v === "weight" ? v : undefined),
   macro_prot_pct: (v) => (typeof v === "number" && v >= 0 && v <= 100 ? v : undefined),

@@ -44,6 +44,8 @@ create table if not exists user_settings (
   age int default 28,              -- espelho calculado de birth_date; usado como fallback
   sex text default 'M' check (sex in ('M','F')),
   train_days int default 3,
+  train_minutes int default 60 check (train_minutes between 0 and 240),
+  neat_level text default 'mostly_sitting' check (neat_level in ('sitting','mostly_sitting','on_feet','active','laborer')),
   deficit_pct int default 15 check (deficit_pct in (10,15,20)),
   macro_mode text default 'pct' check (macro_mode in ('pct','weight')),
   macro_prot_pct numeric default 30,

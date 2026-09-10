@@ -8,8 +8,8 @@ recuperação de senha e link mágico como alternativas), deploy na Vercel.
 
 - **Hoje** — registrar pesagem, "É real ou ruído?", variação vs. anterior, progresso até a meta
 - **Evolução** — gráfico de linha (peso + tendência + meta) com janela de análise selecionável (27 dias padrão, 60, 90, 180, 365), tendência com projeção de composição, recordes, histórico com edição/exclusão
-- **Nutrição** — Mifflin-St Jeor (BMR/TDEE/alvo, com fórmula específica por sexo), macros em dois modos (% e g/kg), simulador de ritmo — treinos/semana e déficit são só exibidos aqui, editados em Ajustes
-- **Ajustes** — metas, perfil físico (data de nascimento → idade automática), treinos/déficit, backup export/import JSON, troca de senha, logout
+- **Nutrição** — Mifflin-St Jeor (BMR/TDEE/alvo, com fórmula específica por sexo), fator de atividade montado (rotina/NEAT + volume de treino: dias × minutos), macros em dois modos (% e g/kg), simulador de ritmo — atividade e déficit são só exibidos aqui, editados em Ajustes
+- **Ajustes** — metas, perfil físico (data de nascimento → idade automática), atividade (rotina/NEAT, treinos/semana, minutos por treino) e déficit, backup export/import JSON, troca de senha, logout
 
 Isolamento entre contas: nenhum dado — pesagens, configurações, metas — de um
 usuário é visível, editável ou removível por outro. Ver
@@ -174,7 +174,8 @@ com o e-mail/senha configurados nele — o app pede para trocar a senha
 provisória no primeiro login. Se criou pela tela "criar conta", já entra
 direto (ou depois de confirmar o e-mail, conforme a configuração do
 projeto). Em seguida o app pede **sexo, data de nascimento, altura, peso
-meta, treinos por semana e déficit** — o mínimo para o Mifflin-St Jeor e o
+meta, rotina fora do treino, treinos por semana, minutos por treino e
+déficit** — o mínimo para o Mifflin-St Jeor e o
 progresso até a meta funcionarem desde o primeiro dia (dá para mudar tudo
 depois em **Ajustes**). Peso atual não é pedido aí — é a primeira pesagem,
 registrada na página **Hoje**.
@@ -182,7 +183,7 @@ registrada na página **Hoje**.
 ### Testes
 
 ```bash
-npm test          # roda a suíte Vitest (93 testes: regras de negócio, cache/isolamento entre sessões, auth)
+npm test          # roda a suíte Vitest (259 testes: regras de negócio, cache/isolamento entre sessões, auth)
 ```
 
 ### Build de produção

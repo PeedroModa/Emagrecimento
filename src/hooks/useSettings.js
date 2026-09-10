@@ -11,6 +11,8 @@ export const DEFAULT_SETTINGS = {
   age: 28,
   sex: "M",
   train_days: 3,
+  train_minutes: 60,
+  neat_level: "mostly_sitting",
   deficit_pct: 15,
   macro_mode: "pct",
   macro_prot_pct: 30,

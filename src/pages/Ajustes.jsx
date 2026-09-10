@@ -39,6 +39,16 @@ function Pill({ active, onClick, children }) {
   return <button type="button" className={"toggle-pill" + (active ? " active" : "")} onClick={onClick}>{children}</button>;
 }
 
+// Rótulos curtos p/ os botões + a descrição que aparece embaixo do selecionado.
+// Os fatores-base moram em NEAT_LEVELS (calculations.js) — aqui é só a UI.
+export const NEAT_UI = [
+  { id: "sitting",        short: "sentado",         desc: "trabalho sentado, ando pouco no dia" },
+  { id: "mostly_sitting", short: "pouco em pé",     desc: "sentado a maior parte, alguma caminhada" },
+  { id: "on_feet",        short: "em pé às vezes",  desc: "em pé ou andando parte do dia" },
+  { id: "active",         short: "muito em pé",     desc: "em pé ou caminhando quase o dia todo" },
+  { id: "laborer",        short: "braçal",          desc: "trabalho físico pesado" },
+];
+
 export default function Ajustes() {
   const { user } = useAuth();
   const { weighIns, importMerge } = useWeighIns();
@@ -182,12 +192,31 @@ export default function Ajustes() {
       </div>
 
       <div className="card">
-        <SectionHeader title="Treino e déficit" subtitle="alimentam a calculadora de calorias" />
+        <SectionHeader title="Atividade e déficit" subtitle="rotina, volume de treino e déficit — alimentam a calculadora de calorias" />
+        <div style={{ marginBottom: 14 }}>
+          <span className="small-label">rotina fora do treino (NEAT)</span>
+          <div className="flex-row" style={{ gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+            {NEAT_UI.map((o) => (
+              <Pill key={o.id} active={settings.neat_level === o.id} onClick={() => set({ neat_level: o.id })}>{o.short}</Pill>
+            ))}
+          </div>
+          <span style={{ fontSize: ".72rem", color: "var(--t3)", display: "block", marginTop: 4, lineHeight: 1.5 }}>
+            {(NEAT_UI.find((o) => o.id === settings.neat_level) || NEAT_UI[1]).desc} — quanto você se move fora do treino pesa tanto quanto o treino no gasto total.
+          </span>
+        </div>
         <div style={{ marginBottom: 14 }}>
           <span className="small-label">treinos por semana</span>
-          <div className="flex-row" style={{ gap: 4, marginTop: 4 }}>
+          <div className="flex-row" style={{ gap: 4, marginTop: 4, flexWrap: "wrap" }}>
             {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => (
               <Pill key={d} active={settings.train_days === d} onClick={() => set({ train_days: d })}>{d}×</Pill>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <span className="small-label">minutos por treino</span>
+          <div className="flex-row" style={{ gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+            {[30, 45, 60, 75, 90, 120].map((m) => (
+              <Pill key={m} active={settings.train_minutes === m} onClick={() => set({ train_minutes: m })}>{m}</Pill>
             ))}
           </div>
         </div>

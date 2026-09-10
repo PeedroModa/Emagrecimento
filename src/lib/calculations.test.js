@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   navyBodyFat, navyBodyFatFull, linearSlope, bmi, bmiCategory, computeRecords, computeSeries, daysBetween,
   computeTrend, computeSignalRead, computeLastChange, computeCalories, computeMacros,
-  computeSimulator, rateStatus, activityFactor, ageFromBirthDate, isValidBirthDate, trendRateChange,
+  computeSimulator, rateStatus, activityFactor, neatLevelInfo, NEAT_LEVELS, DEFAULT_NEAT_LEVEL,
+  ageFromBirthDate, isValidBirthDate, trendRateChange,
   computeProjection, PROJECTION_MAX_WEEKS, PROJECTION_MIN_POINTS,
   AVG_WINDOW_DAYS, TREND_WINDOW_DAYS, TREND_WINDOW_OPTIONS, regressionWindowFor, regressionWeeksFor,
   RATE_HEALTHY, trendGaugePercent,
@@ -299,13 +300,17 @@ describe("trendRateChange — detecta virada de categoria sem estado persistido"
 });
 
 describe("computeCalories — Mifflin-St Jeor (valores de referência)", () => {
-  it("110kg/175cm/28/M/3x/déficit 15% => BMR 2059, TDEE 2831, alvo 2406", () => {
+  // Modelo de atividade novo: NEAT default 'mostly_sitting' (1,40) + treino
+  // 3×60 min (3*60*0.00045 = 0.081) => fator 1,481. BMR não muda (2059);
+  // TDEE e alvo se movem em relação à tabela antiga (era 1,375 => 2831/2406).
+  it("110kg/175cm/28/M/3x60min/déficit 15% => BMR 2059, fator 1.481, TDEE 3049, alvo 2592", () => {
     const res = computeCalories({
       hasWeights: true, currentWeight: 110, height: 175, age: 28, sex: "M", trainDays: 3, deficitPct: 15,
     });
     expect(res.bmr).toBe(2059);
-    expect(res.tdee).toBe(2831);
-    expect(res.target).toBe(2406);
+    expect(res.factor).toBe(1.481);
+    expect(res.tdee).toBe(3049);
+    expect(res.target).toBe(2592);
   });
 
   it("sem pesagens, retorna nulls", () => {
@@ -342,15 +347,15 @@ describe("computeCalories — Mifflin-St Jeor específico por sexo", () => {
     const resM = computeCalories({ ...base, sex: "M" });
     const resF = computeCalories({ ...base, sex: "F" });
     expect(resM.factor).toBe(resF.factor); // fator de atividade não depende do sexo
-    expect(resM.tdee).toBe(2181);
-    expect(resF.tdee).toBe(1953);
+    expect(resM.tdee).toBe(2349);
+    expect(resF.tdee).toBe(2103);
   });
 
   it("alvo com déficit herda a diferença", () => {
     const resM = computeCalories({ ...base, sex: "M" });
     const resF = computeCalories({ ...base, sex: "F" });
-    expect(resM.target).toBe(1854);
-    expect(resF.target).toBe(1660);
+    expect(resM.target).toBe(1997);
+    expect(resF.target).toBe(1788);
   });
 
   it("qualquer valor de sexo diferente de 'M' usa a fórmula feminina (não há terceiro caso)", () => {
@@ -364,18 +369,45 @@ describe("computeCalories — Mifflin-St Jeor específico por sexo", () => {
     const resF = computeCalories({ ...base, sex: "F" });
     const macrosM = computeMacros({ hasWeights: true, kcal: resM.target, currentWeight: 70, protPct: 30, fatPct: 30, protPerKg: 2, fatPerKg: 0.9 });
     const macrosF = computeMacros({ hasWeights: true, kcal: resF.target, currentWeight: 70, protPct: 30, fatPct: 30, protPerKg: 2, fatPerKg: 0.9 });
-    expect(macrosM.kcal).toBe(1854);
-    expect(macrosF.kcal).toBe(1660);
+    expect(macrosM.kcal).toBe(1997);
+    expect(macrosF.kcal).toBe(1788);
     expect(macrosM.byPct.prot.g).toBeGreaterThan(macrosF.byPct.prot.g);
   });
 });
 
-describe("activityFactor", () => {
-  it("mapeia treinos/semana para fator e label", () => {
-    expect(activityFactor(0)).toEqual({ factor: 1.2, label: "sedentário" });
-    expect(activityFactor(2)).toEqual({ factor: 1.375, label: "leve" });
-    expect(activityFactor(5)).toEqual({ factor: 1.55, label: "moderado" });
-    expect(activityFactor(7)).toEqual({ factor: 1.725, label: "intenso" });
+describe("activityFactor — NEAT + volume de treino", () => {
+  it("sem treino, o fator é só a base de estilo de vida (NEAT)", () => {
+    expect(activityFactor({ neatLevel: "sitting", trainDays: 0 }).factor).toBe(1.3);
+    expect(activityFactor({ neatLevel: "laborer", trainDays: 0 }).factor).toBe(1.7);
+  });
+
+  it("NEAT ausente ou desconhecido cai no default (mostly_sitting = 1,40)", () => {
+    expect(activityFactor({ trainDays: 0 }).factor).toBe(1.4);
+    expect(activityFactor({ neatLevel: "xpto", trainDays: 0 }).factor).toBe(1.4);
+    expect(neatLevelInfo("xpto").id).toBe(DEFAULT_NEAT_LEVEL);
+    expect(NEAT_LEVELS).toHaveLength(5);
+  });
+
+  it("o treino acrescenta em cima da base, proporcional a dias × minutos", () => {
+    const a = activityFactor({ neatLevel: "sitting", trainDays: 4, trainMinutes: 50 });
+    expect(a.neatFactor).toBe(1.3);
+    expect(a.exercise).toBeCloseTo(0.09, 5); // 4 * 50 * 0.00045
+    expect(a.factor).toBeCloseTo(1.39, 5);
+  });
+
+  it("minutos default = 60 quando não informado", () => {
+    expect(activityFactor({ neatLevel: "mostly_sitting", trainDays: 3 }).exercise).toBeCloseTo(0.081, 5);
+  });
+
+  it("o MESMO '4x/semana' rende fatores bem diferentes conforme a rotina fora do treino", () => {
+    const sedentario = activityFactor({ neatLevel: "sitting", trainDays: 4, trainMinutes: 50 });
+    const ativo = activityFactor({ neatLevel: "active", trainDays: 4, trainMinutes: 75 });
+    expect(ativo.factor - sedentario.factor).toBeGreaterThan(0.3);
+  });
+
+  it("satura entre 1,2 e 2,2", () => {
+    expect(activityFactor({ neatLevel: "laborer", trainDays: 7, trainMinutes: 240 }).factor).toBe(2.2);
+    expect(activityFactor({ neatLevel: "sitting", trainDays: 0, trainMinutes: 0 }).factor).toBe(1.3);
   });
 });
 
@@ -482,8 +514,8 @@ describe("computeCalories com idade derivada", () => {
     });
     expect(age).toBe(28);
     expect(res.bmr).toBe(2059);
-    expect(res.tdee).toBe(2831);
-    expect(res.target).toBe(2406);
+    expect(res.tdee).toBe(3049);
+    expect(res.target).toBe(2592);
   });
 });
 
