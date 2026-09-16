@@ -1,10 +1,11 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Weight, Map, Flame, Settings } from "lucide-react";
+import { Weight, Map, Flame, Droplets, Settings } from "lucide-react";
 
 const NAV = [
   { to: "/", label: "Hoje", icon: Weight, end: true },
   { to: "/jornada", label: "Jornada", icon: Map },
   { to: "/nutricao", label: "Nutrição", icon: Flame },
+  { to: "/hidratacao", label: "Água", icon: Droplets },
   { to: "/ajustes", label: "Ajustes", icon: Settings },
 ];
 

@@ -292,6 +292,7 @@ nenhum `RAISE EXCEPTION`, o isolamento está comprovado.
 - [ ] Criar projeto no Supabase e rodar `supabase/schema.sql`
 - [ ] (Opcional) Rodar `supabase/criar-usuario.sql` para uma conta sem depender de e-mail
 - [ ] Se o banco é antigo: rodar `supabase/migration-birth-date.sql`
+- [ ] Hidratação (página Água): rodar `supabase/migration-hydration.sql` (tabela `water_logs` + RLS)
 - [ ] Configurar provider Email e Redirect URLs (localhost)
 - [ ] (Recomendado antes de convidar outras pessoas) Configurar SMTP próprio para cadastro/recuperação de senha/link mágico
 - [ ] Criar `.env` local com URL + anon key

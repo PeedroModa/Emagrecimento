@@ -9,6 +9,7 @@ import PrimeiroAcesso from "./pages/PrimeiroAcesso.jsx";
 import Hoje from "./pages/Hoje.jsx";
 import Jornada from "./pages/Jornada.jsx";
 import Nutricao from "./pages/Nutricao.jsx";
+import Hidratacao from "./pages/Hidratacao.jsx";
 import Ajustes from "./pages/Ajustes.jsx";
 
 function LoadingScreen({ text = "Carregando painel..." }) {
@@ -60,6 +61,7 @@ function Onboarding({ user }) {
           <Route path="/jornada" element={<Jornada />} />
           <Route path="/evolucao" element={<Navigate to="/jornada" replace />} />
           <Route path="/nutricao" element={<Nutricao />} />
+          <Route path="/hidratacao" element={<Hidratacao />} />
           <Route path="/ajustes" element={<Ajustes />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
