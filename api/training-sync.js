@@ -25,11 +25,12 @@ function timingSafeEqual(a, b) {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
-  const { VITE_SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: key, SYNC_TOKEN: token, SYNC_USER_ID: userId } = process.env;
+  // .trim(): valores colados no painel da Vercel costumam vir com espaço/quebra de linha no fim.
+  const [url, key, token, userId] = ["VITE_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SYNC_TOKEN", "SYNC_USER_ID"].map((k) => (process.env[k] || "").trim());
   if (!url || !key || !token || !userId) return res.status(500).json({ error: "sync não configurado (variáveis de ambiente)" });
 
   const auth = req.headers.authorization || "";
-  if (!timingSafeEqual(auth, `Bearer ${token}`)) return res.status(401).json({ error: "não autorizado" });
+  if (!timingSafeEqual(auth.trim(), `Bearer ${token}`)) return res.status(401).json({ error: "não autorizado" });
 
   const body = typeof req.body === "string" ? req.body : JSON.stringify(req.body ?? {});
   const { error, sessions } = parseTrainingImport(body);
