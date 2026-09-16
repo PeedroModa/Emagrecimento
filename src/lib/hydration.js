@@ -99,3 +99,19 @@ export function reminderMessage({ logsToday, status, now = new Date() }) {
   if (status.stage === "goal" || status.stage === "over") return null;
   return `Ainda faltam ${fmtLiters(status.remainingMl)} para sua meta de hoje.`;
 }
+
+// Percentual da meta por dia, para o motor de insights: usa o peso oficial
+// de cada dia (weightForDay). Só dias com registro E meta calculável.
+export function hydrationByDay(logs, sortedWeights) {
+  const totals = new Map();
+  for (const l of logs || []) {
+    const d = localDateISO(new Date(l.logged_at));
+    totals.set(d, (totals.get(d) || 0) + l.amount_ml);
+  }
+  const out = [];
+  for (const [date, totalMl] of totals) {
+    const goalMl = hydrationGoalMl(weightForDay(sortedWeights, date));
+    if (goalMl) out.push({ date, totalMl, pct: Math.round((totalMl / goalMl) * 100) });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}

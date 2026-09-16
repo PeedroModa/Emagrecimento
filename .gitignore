@@ -23,3 +23,6 @@ Thumbs.db
 
 # preview local (não versionar)
 preview/
+
+# dados pessoais importados (treinos do Gravl etc.)
+imports/

@@ -293,6 +293,8 @@ nenhum `RAISE EXCEPTION`, o isolamento está comprovado.
 - [ ] (Opcional) Rodar `supabase/criar-usuario.sql` para uma conta sem depender de e-mail
 - [ ] Se o banco é antigo: rodar `supabase/migration-birth-date.sql`
 - [ ] Hidratação (página Água): rodar `supabase/migration-hydration.sql` (tabela `water_logs` + RLS)
+- [ ] Treinos reais (Gravl): rodar `supabase/migration-training-sessions.sql`; importar o .json em Ajustes → Treinos
+- [ ] (Opcional) Sincronização automática de treinos: ver seção "Sync de treinos" abaixo
 - [ ] Configurar provider Email e Redirect URLs (localhost)
 - [ ] (Recomendado antes de convidar outras pessoas) Configurar SMTP próprio para cadastro/recuperação de senha/link mágico
 - [ ] Criar `.env` local com URL + anon key
@@ -301,6 +303,23 @@ nenhum `RAISE EXCEPTION`, o isolamento está comprovado.
 - [ ] Criar repositório no GitHub e fazer push
 - [ ] Importar o projeto na Vercel com as 2 variáveis de ambiente
 - [ ] Atualizar Site URL / Redirect URLs no Supabase com o domínio da Vercel
+
+---
+
+## Sync de treinos (Gravl → `training_sessions`)
+
+Dois caminhos, mesmo formato (a lista `workouts` que o MCP do Gravl devolve):
+
+1. **Arquivo:** o Claude exporta `imports/gravl-AAAA-MM-DD.json` (pasta ignorada pelo Git) e você importa em **Ajustes → Treinos**. Funciona sem configurar nada.
+2. **Endpoint** `api/training-sync.js` (Vercel Serverless), para sincronizar sem passar por arquivo. Configure na Vercel:
+   - `SUPABASE_SERVICE_ROLE_KEY` — Project Settings → API (nunca no `.env` do Vite)
+   - `SYNC_TOKEN` — um segredo longo gerado por você
+   - `SYNC_USER_ID` — seu uuid em `auth.users`
+   - `VITE_SUPABASE_URL` já existe
+
+   Depois: `POST https://<seu-dominio>/api/training-sync` com `Authorization: Bearer <SYNC_TOKEN>` e o JSON do Gravl no corpo. Upsert por `(user_id, external_id)`: repetir nunca duplica.
+
+O fator de atividade passa a usar as sessões reais dos últimos 28 dias (≥ 2 sessões); com menos que isso, valem os botões estáticos de Ajustes. Cada dia com sessão vira marcador "treino" no motor de insights.
 
 ---
 

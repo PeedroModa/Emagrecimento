@@ -2,7 +2,10 @@ import { useMemo } from "react";
 import { useAuth } from "../hooks/useAuth.js";
 import { useWeighIns } from "../hooks/useWeighIns.js";
 import { useSettings } from "../hooks/useSettings.js";
+import { useTrainingSessions } from "../hooks/useTrainingSessions.js";
 import { computeMetabolicAdaptation } from "../lib/coaching.js";
+import { applyTrainingLoad } from "../lib/training.js";
+import { todayISO } from "../lib/calculations.js";
 import CaloriesCard from "../components/nutrition/CaloriesCard.jsx";
 import MacrosCard from "../components/nutrition/MacrosCard.jsx";
 import SimulatorCard from "../components/nutrition/SimulatorCard.jsx";
@@ -12,8 +15,12 @@ import EmptyState from "../components/ui/EmptyState.jsx";
 export default function Nutricao() {
   const { user } = useAuth();
   const { weighIns, loading: loadingW } = useWeighIns();
-  const { settings, loading: loadingS, error, retry, save, saveState, dismissSaveError } = useSettings();
+  const { settings: saved, loading: loadingS, error, retry, save, saveState, dismissSaveError } = useSettings();
+  const { sessions } = useTrainingSessions();
 
+  // Treinos reais (Gravl) sobrescrevem dias/minutos de treino só aqui, na
+  // leitura — Ajustes continua guardando o fallback estático.
+  const settings = useMemo(() => applyTrainingLoad(saved, sessions, todayISO()), [saved, sessions]);
   const hasWeights = weighIns.length > 0;
   const currentWeight = hasWeights ? weighIns[weighIns.length - 1].weight : null;
   const adaptation = useMemo(() => computeMetabolicAdaptation(weighIns, settings), [weighIns, settings]);

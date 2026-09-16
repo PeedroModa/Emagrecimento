@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   hydrationGoalMl, hydrationStatus, dayTotalMl, weightForDay, fmtLiters,
-  reminderMessage, localDateISO, timestampForDay,
+  reminderMessage, localDateISO, timestampForDay, hydrationByDay,
 } from "./hydration.js";
 
 describe("hydration — meta e status", () => {
@@ -73,5 +73,21 @@ describe("hydration — formatação e lembrete", () => {
     const done = hydrationStatus({ totalMl: 5400, goalMl: 5400 });
     expect(reminderMessage({ logsToday: old, status: done, now })).toBeNull();
     expect(reminderMessage({ logsToday: old, status: { stage: null }, now })).toBeNull();
+  });
+});
+
+describe("hydration — hydrationByDay (insumo do motor de insights)", () => {
+  it("agrupa por dia local e calcula % contra o peso oficial daquele dia", () => {
+    const logs = [
+      { logged_at: new Date(2026, 8, 16, 8, 0).toISOString(), amount_ml: 2700 },
+      { logged_at: new Date(2026, 8, 16, 20, 0).toISOString(), amount_ml: 2700 },
+      { logged_at: new Date(2026, 8, 15, 9, 0).toISOString(), amount_ml: 1000 },
+    ];
+    const w = [{ date: "2026-09-10", weight: 100 }, { date: "2026-09-16", weight: 108 }];
+    expect(hydrationByDay(logs, w)).toEqual([
+      { date: "2026-09-15", totalMl: 1000, pct: 20 },
+      { date: "2026-09-16", totalMl: 5400, pct: 100 },
+    ]);
+    expect(hydrationByDay(logs, [])).toEqual([]);
   });
 });

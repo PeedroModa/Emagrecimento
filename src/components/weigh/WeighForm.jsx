@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Ruler, X } from "lucide-react";
 import { todayISO, parseDecimal } from "../../lib/calculations.js";
 
-export default function WeighForm({ onSubmit, saving }) {
+// `openMeasures`: quando vira true (lembrete de cintura na Hoje), abre a
+// seção de medidas — o usuário ainda pode fechar.
+export default function WeighForm({ onSubmit, saving, openMeasures = false }) {
   const [date, setDate] = useState(todayISO());
   const [weight, setWeight] = useState("");
   const [note, setNote] = useState("");
   const [showMeasures, setShowMeasures] = useState(false);
+  useEffect(() => { if (openMeasures) setShowMeasures(true); }, [openMeasures]);
   const [waist, setWaist] = useState("");
   const [neck, setNeck] = useState("");
   const [fieldError, setFieldError] = useState("");

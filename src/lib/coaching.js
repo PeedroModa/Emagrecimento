@@ -198,3 +198,23 @@ export function computePlateau(sortedWeights, goal, heightCm, today = todayISO()
     ratePerWeek: trend?.perWeek ?? null,
   };
 }
+
+// ── Cintura com cadência ───────────────────────────────────────────────
+// A composição (Navy) só vira número com COMP_CONFIDENT_SAMPLE medidas de
+// cintura+pescoço. Em vez de esperar o acaso, sugere medir aos domingos
+// (ou em qualquer dia, se a última medida já passou de 2 semanas). null =
+// nada a sugerir (já mediu hoje, mediu nesta semana, ou não é domingo).
+export const WAIST_CADENCE_DAYS = 7;
+export function waistReminder(sortedWeights, today = todayISO()) {
+  if (!Array.isArray(sortedWeights) || !sortedWeights.length) return null;
+  const todayEntry = sortedWeights.find((w) => w.date === today);
+  if (todayEntry?.waist) return null;
+  const withWaist = sortedWeights.filter((w) => w.waist);
+  const last = withWaist[withWaist.length - 1] ?? null;
+  const daysSince = last ? daysBetween(last.date, today) : null;
+  const isSunday = new Date(`${today}T00:00:00Z`).getUTCDay() === 0;
+  const overdue = daysSince != null && daysSince >= WAIST_CADENCE_DAYS * 2;
+  if (!isSunday && !overdue) return null;
+  if (daysSince != null && daysSince < WAIST_CADENCE_DAYS - 1) return null;
+  return { daysSince, samples: withWaist.length, overdue, never: !last };
+}

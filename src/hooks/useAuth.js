@@ -7,6 +7,7 @@ import { clearInsightStateCache } from "./useInsightState.js";
 import { clearMeasurementsCache } from "./useMeasurements.js";
 import { clearDayMarkersCache } from "./useDayMarkers.js";
 import { clearWaterLogsCache } from "./useWaterLogs.js";
+import { clearTrainingSessionsCache } from "./useTrainingSessions.js";
 
 const RECOVERY_FLAG_KEY = "pwRecoveryPending";
 
@@ -63,6 +64,7 @@ export function useAuth() {
         clearMeasurementsCache();
         clearDayMarkersCache();
         clearWaterLogsCache();
+        clearTrainingSessionsCache();
         clearRecoveryFlag();
         setPasswordRecovery(false);
         setSessionExpired(!explicitSignOut);

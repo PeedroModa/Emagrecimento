@@ -43,7 +43,10 @@ export default function CaloriesCard({ settings, currentWeight, hasWeights }) {
           {calories.factorLabel} · {settings.train_days}× {settings.train_minutes}min · déficit {settings.deficit_pct}%
         </div>
         <div style={{ fontSize: ".7rem", color: "var(--t3)", marginTop: 3 }}>
-          rotina {neatFactor} {exercise > 0 ? `+ treino ${exercise.toFixed(2)}` : "sem treino"} · edita em Ajustes
+          rotina {neatFactor} {exercise > 0 ? `+ treino ${exercise.toFixed(2)}` : "sem treino"}
+          {settings.training_load
+            ? ` · volume real: ${settings.training_load.count} treinos nos últimos ${settings.training_load.windowDays} dias (Gravl)`
+            : " · edita em Ajustes"}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   computeTrendWeight, computeWeeklyReview, computeGoalPace,
-  computeMetabolicAdaptation, computePlateau,
+  computeMetabolicAdaptation, computePlateau, waistReminder,
 } from "./coaching.js";
 
 const DAY = 86400000;
@@ -115,5 +115,22 @@ describe("computePlateau — platô nomeado", () => {
     expect(computePlateau(flat, 82, 178, "2026-09-01").stale).toBe(true);
     const belowGoal = weekly("2026-01-03", 10, (i) => (i < 3 ? 90 - i : 81));
     expect(computePlateau(belowGoal, 82, 178, belowGoal[belowGoal.length - 1].date).atGoal).toBe(true);
+  });
+});
+
+describe("waistReminder — cintura aos domingos", () => {
+  const SUN = "2026-09-13", MON = "2026-09-14";
+  it("domingo sem nenhuma cintura → sugere (never)", () => {
+    expect(waistReminder([w(SUN, 100)], SUN)).toMatchObject({ never: true, samples: 0, overdue: false });
+  });
+  it("domingo com cintura de 7 dias atrás → sugere; medida nesta semana → silêncio", () => {
+    expect(waistReminder([w("2026-09-06", 100, { waist: 100 }), w(SUN, 99.5)], SUN)).toMatchObject({ daysSince: 7, samples: 1 });
+    expect(waistReminder([w("2026-09-10", 100, { waist: 100 }), w(SUN, 99.5)], SUN)).toBeNull();
+  });
+  it("já mediu hoje → silêncio; segunda-feira só fala se passou de 14 dias", () => {
+    expect(waistReminder([w(SUN, 100, { waist: 100 })], SUN)).toBeNull();
+    expect(waistReminder([w("2026-09-06", 100, { waist: 100 }), w(MON, 99)], MON)).toBeNull();
+    expect(waistReminder([w("2026-08-20", 100, { waist: 100 }), w(MON, 99)], MON)).toMatchObject({ overdue: true, daysSince: 25 });
+    expect(waistReminder([], MON)).toBeNull();
   });
 });

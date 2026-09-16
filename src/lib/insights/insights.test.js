@@ -315,3 +315,28 @@ describe("computeInvestigations", () => {
     expect(items.some((i) => i.id === "personal-noise-band")).toBe(false);
   });
 });
+
+describe("Tier 5 — hidratação como contexto", () => {
+  it("dias de pouca água com peso empurrado no dia seguinte → dispara, sempre hipótese", () => {
+    const series = makeSeries({ days: 90, startKg: 90, slopeKgPerDay: 0, noiseSd: 0.15, seed: 41 });
+    const lowDays = new Set(series.filter((_, i) => i % 4 === 0).map((w) => w.date));
+    const waterLogs = series.map((w) => ({
+      logged_at: `${w.date}T12:00:00`, amount_ml: lowDays.has(w.date) ? 1000 : 4600, // meta ≈ 90kg×50 = 4500
+    }));
+    const boosted = series.map((w, i) =>
+      i > 0 && lowDays.has(series[i - 1].date) ? { ...w, weight: +(w.weight + 0.8).toFixed(2) } : w
+    );
+    const ctx = buildInsightContext({ weighIns: boosted, settings, waterLogs, today: boosted[boosted.length - 1].date });
+    expect(ctx.hydration.length).toBe(90);
+    const effect = runInsights(ctx).find((i) => i.ruleId === "hydration-effect");
+    expect(effect).toBeTruthy();
+    expect(effect.confianca).toBe("hipotese");
+  });
+
+  it("sem registros de água a regra fica em silêncio; treinos importados viram marcador 'treino'", () => {
+    const series = makeSeries({ days: 90, startKg: 90, slopeKgPerDay: 0, noiseSd: 0.2, seed: 43 });
+    const ctx = buildInsightContext({ weighIns: series, settings, today: series[89].date, sessions: [{ date: series[3].date, minutes: 40 }] });
+    expect(runInsights(ctx).some((i) => i.ruleId === "hydration-effect")).toBe(false);
+    expect(ctx.markers).toEqual([{ date: series[3].date, trained: true }]);
+  });
+});

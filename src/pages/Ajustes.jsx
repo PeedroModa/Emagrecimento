@@ -1,10 +1,12 @@
 import { useState, useRef } from "react";
-import { Download, Upload, Copy, LogOut, KeyRound } from "lucide-react";
+import { Download, Upload, Copy, LogOut, KeyRound, Dumbbell } from "lucide-react";
 import { useAuth, signOut } from "../hooks/useAuth.js";
 import { useWeighIns } from "../hooks/useWeighIns.js";
 import { useSettings } from "../hooks/useSettings.js";
-import { parseDecimal, todayISO, isValidBirthDate } from "../lib/calculations.js";
+import { useTrainingSessions } from "../hooks/useTrainingSessions.js";
+import { parseDecimal, todayISO, isValidBirthDate, fmtDateBR } from "../lib/calculations.js";
 import { buildExportJSON, downloadJSON, parseImportJSON } from "../lib/backup.js";
+import { parseTrainingImport, trainingLoad } from "../lib/training.js";
 import SectionHeader from "../components/layout/SectionHeader.jsx";
 import ConfirmModal from "../components/ui/ConfirmModal.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
@@ -58,8 +60,27 @@ export default function Ajustes() {
   const [importing, setImporting] = useState(false);
   const [trocandoSenha, setTrocandoSenha] = useState(false);
   const fileRef = useRef(null);
+  const trainingFileRef = useRef(null);
+  const { sessions, importSessions } = useTrainingSessions();
+  const [importingTraining, setImportingTraining] = useState(false);
+  const load = trainingLoad(sessions, todayISO());
 
   const set = (patch) => save(patch, user.id);
+
+  function handleTrainingFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const result = parseTrainingImport(reader.result);
+      if (result.error) { show(result.error, "error"); return; }
+      setImportingTraining(true);
+      const { error: err } = await importSessions(result.sessions, user.id);
+      setImportingTraining(false);
+      if (err) show(err, "error");
+      else show(`${result.sessions.length} treinos importados.`);
+    };
+    reader.readAsText(file);
+  }
 
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
@@ -204,6 +225,16 @@ export default function Ajustes() {
             {(NEAT_UI.find((o) => o.id === settings.neat_level) || NEAT_UI[1]).desc} — quanto você se move fora do treino pesa tanto quanto o treino no gasto total.
           </span>
         </div>
+        {load && (
+          <div className="hy-reminder" style={{ margin: "0 0 14px" }}>
+            <Dumbbell size={15} />
+            <span>
+              Volume real dos seus treinos: <strong className="num">{load.count}</strong> em {load.windowDays} dias →{" "}
+              <strong className="num">{String(load.sessionsPerWeek).replace(".", ",")}×</strong>/semana, <strong className="num">{load.avgMinutes}</strong> min em média.
+              A calculadora usa isso; os botões abaixo só valem quando não há treinos importados nos últimos {load.windowDays} dias.
+            </span>
+          </div>
+        )}
         <div style={{ marginBottom: 14 }}>
           <span className="small-label">treinos por semana</span>
           <div className="flex-row" style={{ gap: 4, marginTop: 4, flexWrap: "wrap" }}>
@@ -228,6 +259,27 @@ export default function Ajustes() {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="card">
+        <SectionHeader title="Treinos (Gravl)" subtitle="sessões reais alimentam o fator de atividade e o marcador “treino” dos insights" />
+        <div className="flex-row">
+          <button className="btn-secondary" disabled={importingTraining} onClick={() => trainingFileRef.current?.click()}>
+            <Upload size={15} /> {importingTraining ? "Importando..." : "Importar treinos (.json)"}
+          </button>
+          <input
+            ref={trainingFileRef} type="file" accept="application/json,.json" style={{ display: "none" }}
+            onChange={(e) => { handleTrainingFile(e.target.files?.[0]); e.target.value = ""; }}
+          />
+          <span style={{ fontSize: ".82rem", color: "var(--t2)" }}>
+            {sessions.length
+              ? <><span className="num">{sessions.length}</span> treinos · último em {fmtDateBR(sessions[sessions.length - 1].date)}</>
+              : "nenhum treino importado ainda"}
+          </span>
+        </div>
+        <p style={{ fontSize: ".76rem", color: "var(--t3)", marginTop: 10, lineHeight: 1.5 }}>
+          Aceita a lista de treinos do Gravl (exportada pelo Claude) ou o mesmo formato via <span className="num">api/training-sync</span>. Reimportar nunca duplica: cada treino é reconhecido pelo id de origem.
+        </p>
       </div>
 
       <div className="card">

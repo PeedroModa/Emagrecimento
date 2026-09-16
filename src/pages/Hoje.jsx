@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef, useCallback } from "react";
-import { Weight, Upload } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Weight, Upload, Droplets, Ruler } from "lucide-react";
 import { useAuth } from "../hooks/useAuth.js";
 import { useWeighIns } from "../hooks/useWeighIns.js";
 import { useSettings } from "../hooks/useSettings.js";
@@ -7,8 +8,12 @@ import { useAppState } from "../hooks/useAppState.js";
 import { useInsightState } from "../hooks/useInsightState.js";
 import { useMeasurements } from "../hooks/useMeasurements.js";
 import { useDayMarkers } from "../hooks/useDayMarkers.js";
+import { useWaterLogs } from "../hooks/useWaterLogs.js";
+import { useTrainingSessions } from "../hooks/useTrainingSessions.js";
 import { computeSignalRead, computeLastChange, fmtDateBR, todayISO } from "../lib/calculations.js";
-import { computeTrendWeight, computeWeeklyReview } from "../lib/coaching.js";
+import { computeTrendWeight, computeWeeklyReview, waistReminder } from "../lib/coaching.js";
+import { localDateISO, dayTotalMl, hydrationGoalMl, hydrationStatus, fmtLiters } from "../lib/hydration.js";
+import { mergeTrainingIntoMarkers } from "../lib/training.js";
 import { buildInsightContext, runInsights, rankInsights, computeInvestigations } from "../lib/insights/index.js";
 import { parseImportJSON } from "../lib/backup.js";
 import WeighForm from "../components/weigh/WeighForm.jsx";
@@ -42,9 +47,13 @@ export default function Hoje() {
   const { statesByKey, markSeen, dismiss } = useInsightState(user?.id);
   const { measurements } = useMeasurements();
   const { markers, toggle: toggleMarker } = useDayMarkers();
+  const { logs: waterLogs } = useWaterLogs();
+  const { sessions } = useTrainingSessions();
   const [confirm, setConfirm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [wantMeasures, setWantMeasures] = useState(false);
+
   const [heroMode, setHeroMode] = useState(() => {
     try { return localStorage.getItem("hero-weight-mode") === "trend" ? "trend" : "scale"; } catch { return "scale"; }
   });
@@ -69,8 +78,18 @@ export default function Hoje() {
   const showTrendHero = heroMode === "trend" && trendWeight != null;
 
   const insightCtx = useMemo(
-    () => buildInsightContext({ weighIns: sorted, settings, measurements, markers, today: todayISO() }),
-    [sorted, settings, measurements, markers]
+    () => buildInsightContext({ weighIns: sorted, settings, measurements, markers, waterLogs, sessions, today: todayISO() }),
+    [sorted, settings, measurements, markers, waterLogs, sessions]
+  );
+  // Água de hoje (dia local) e cintura: contexto de um olhar, sem virar card.
+  const waterToday = useMemo(() => {
+    const totalMl = dayTotalMl(waterLogs, localDateISO());
+    return { totalMl, ...hydrationStatus({ totalMl, goalMl: hydrationGoalMl(last?.weight) }) };
+  }, [waterLogs, last]);
+  const waist = useMemo(() => waistReminder(sorted, todayISO()), [sorted]);
+  const todayMarker = useMemo(
+    () => mergeTrainingIntoMarkers(markers, sessions).find((m) => m.date === todayISO()),
+    [markers, sessions]
   );
   const investigations = useMemo(() => computeInvestigations(insightCtx), [insightCtx]);
   const rankedInsights = useMemo(() => {
@@ -276,16 +295,39 @@ export default function Hoje() {
       {/* Registrar pesagem */}
       <div className="card">
         <SectionHeader title="Registrar pesagem" subtitle="uma pesagem por dia, de manhã — quanto mais denso, mais preciso" />
-        <WeighForm onSubmit={handleSubmit} saving={saving} />
+        {waist && !wantMeasures && (
+          <div className="hy-reminder" style={{ margin: "0 0 1rem" }} role="status">
+            <Ruler size={15} />
+            <span>
+              {waist.never
+                ? "Domingo é dia de cintura. Fita no umbigo, 10 segundos: com 4 medidas o painel passa a estimar gordura e massa magra em número."
+                : waist.overdue
+                  ? `Sua última medida de cintura foi há ${waist.daysSince} dias. Vale medir de novo esta semana.`
+                  : `Domingo é dia de cintura. Última medida há ${waist.daysSince} dias (${waist.samples} ${waist.samples === 1 ? "amostra" : "amostras"}).`}
+            </span>
+            <button type="button" className="hy-today-link" style={{ marginLeft: "auto", whiteSpace: "nowrap" }} onClick={() => setWantMeasures(true)}>
+              medir agora
+            </button>
+          </div>
+        )}
+        <WeighForm onSubmit={handleSubmit} saving={saving} openMeasures={wantMeasures} />
       </div>
 
       {hasWeights && (
         <div className="card">
           <DayMarkerChips
             date={todayISO()}
-            marker={markers.find((m) => m.date === todayISO())}
+            marker={todayMarker}
             onToggle={(date, key) => toggleMarker(date, key, user.id)}
           />
+          {waterToday.pct != null && (
+            <Link to="/hidratacao" className="hy-today-chip" aria-label={`Água hoje: ${waterToday.pct}% da meta`}>
+              <Droplets size={14} />
+              <span className="num">{fmtLiters(waterToday.totalMl)}</span>
+              <span>· {waterToday.pct}% da meta de água</span>
+              <span className="hy-today-chip-track" aria-hidden="true"><span style={{ width: `${Math.min(100, waterToday.pct)}%` }} /></span>
+            </Link>
+          )}
         </div>
       )}
 

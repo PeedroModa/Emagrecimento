@@ -4,11 +4,16 @@
 // carregados (weighIns, settings), nunca busca nada sozinho.
 import { daysBetween, computeSeries, computeRecords, bmi, bmiCategory } from "../calculations.js";
 import { ols, normalizedDeltas, noiseBand } from "../stats.js";
+import { hydrationByDay } from "../hydration.js";
+import { mergeTrainingIntoMarkers } from "../training.js";
 
 const TREND_WINDOWS = [14, 28, 56, 90];
 
-export function buildInsightContext({ weighIns, settings, today, measurements = [], markers = [] }) {
+export function buildInsightContext({ weighIns, settings, today, measurements = [], markers = [], waterLogs = [], sessions = [] }) {
   const sorted = weighIns || [];
+  // Treinos reais (Gravl) viram marcador "treino"; água vira % da meta por dia.
+  const allMarkers = mergeTrainingIntoMarkers(markers, sessions);
+  const hydration = hydrationByDay(waterLogs, sorted);
   const n = sorted.length;
   const first = sorted[0] ?? null;
   const last = sorted[n - 1] ?? null;
@@ -51,6 +56,6 @@ export function buildInsightContext({ weighIns, settings, today, measurements = 
     deltas, dropped, denseDeltaCount, band, trends, records,
     bmiNow, bmiCat: bmiCategory(bmiNow), journeyDays,
     goal, totalToLose, totalLost, progressPct,
-    settings, measurements, markers,
+    settings, measurements, markers: allMarkers, hydration,
   };
 }

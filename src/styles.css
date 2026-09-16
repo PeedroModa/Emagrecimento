@@ -730,3 +730,17 @@ button:disabled { cursor: default; opacity: .55; }
   .hy-reminder { text-align: left; align-self: stretch; }
 }
 @media (max-width: 400px) { .hy-quick { grid-template-columns: repeat(2, 1fr); } }
+
+/* ── Água de hoje (chip na Hoje) ── */
+.hy-today-chip {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  margin-top: .9rem; padding: .55rem .8rem; border-radius: 10px; text-decoration: none;
+  background: rgba(134,162,179,.07); border: 1px solid rgba(134,162,179,.2);
+  color: var(--t2); font-family: var(--font-condensed); font-size: .84rem; letter-spacing: .02em;
+  transition: border-color .2s, background .2s;
+}
+.hy-today-chip:hover { border-color: rgba(160,200,216,.6); background: rgba(134,162,179,.14); color: var(--t1); }
+.hy-today-chip svg { color: #86A2B3; flex-shrink: 0; }
+.hy-today-chip .num { color: var(--t1); font-weight: 600; }
+.hy-today-chip-track { flex: 1 1 80px; height: 4px; border-radius: 2px; background: var(--card2); overflow: hidden; min-width: 60px; }
+.hy-today-chip-track > span { display: block; height: 100%; background: linear-gradient(90deg, #5E8EA6, #9CC4D6); transition: width .8s ease; }
