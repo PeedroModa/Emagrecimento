@@ -301,11 +301,17 @@ describe("rankInsights", () => {
 });
 
 describe("computeInvestigations", () => {
-  it("com histórico esparso, lista as 3 investigações em aberto com progresso correto", () => {
+  it("com histórico esparso, lista TODAS as investigações travadas por volume, a mais próxima primeiro", () => {
     const ctx = ctxFor(FIXTURES.sparse6);
     const items = computeInvestigations(ctx);
-    expect(items.map((i) => i.id)).toEqual(["personal-noise-band", "trend-significance", "weekday-effect"]);
-    expect(items[0].atual).toBe(ctx.denseDeltaCount);
+    const ids = items.map((i) => i.id);
+    for (const id of ["personal-noise-band", "trend-significance", "weekday-effect", "pace-change", "journey-phases", "milestone-90d", "marker-effect", "hydration-effect", "waist-height-ratio", "recomposition"]) {
+      expect(ids).toContain(id);
+    }
+    expect(new Set(ids).size).toBe(ids.length); // uma entrada por regra
+    const fracs = items.map((i) => i.atual / i.meta);
+    expect([...fracs].sort((a, b) => b - a)).toEqual(fracs);
+    expect(items.find((i) => i.id === "personal-noise-band").atual).toBe(ctx.denseDeltaCount);
   });
 
   it("uma vez desbloqueada, a investigação some da lista", () => {

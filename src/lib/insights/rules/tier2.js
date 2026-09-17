@@ -16,15 +16,23 @@ export const trendSignificanceRule = {
     const ciLo = +(fit.slopeCi[0] * 7).toFixed(2);
     const ciHi = +(fit.slopeCi[1] * 7).toFixed(2);
     const real = fit.significant;
+    // Inclinação ~zero E intervalo que cruza zero: isso não é "ainda não dá
+    // para confirmar", é "não saiu do lugar". Sem essa distinção, lido ao
+    // lado de pace-change ("sua perda parou"), o texto parecia contradizê-lo.
+    const flat = !real && Math.abs(perWeek) < 0.1;
     const conf = confidenceFrom({ kind: "trend", n: t.n, pAdj: fit.pValue });
     return {
-      key: `trend-significance:28:${real ? "real" : "plateau"}`,
+      key: `trend-significance:28:${real ? "real" : "plateau"}`, // "flat" só muda o texto, não o escopo
       titulo: real
         ? (perWeek < 0 ? "Sua queda nas últimas semanas é estatisticamente real" : "Sua alta nas últimas semanas é estatisticamente real")
-        : "Nas últimas semanas, ainda não dá para confirmar mudança",
+        : flat
+          ? "Nas últimas semanas seu peso não saiu do lugar"
+          : "Nas últimas semanas, ainda não dá para confirmar mudança",
       corpo: real
         ? `No período analisado (${t.n} pesagens), seu ritmo foi de ${perWeek}kg/semana, com intervalo de confiança de 95% que não cruza zero — não é sorte, é sinal.`
-        : `No período analisado (${t.n} pesagens), seu ritmo foi de ${perWeek}kg/semana, mas a incerteza estatística ainda inclui zero. Com os dados de agora, não dá para afirmar que houve mudança real — pode ser um platô, ou pode ser cedo demais para saber.`,
+        : flat
+          ? `No período analisado (${t.n} pesagens), a reta ajustada é praticamente horizontal (${perWeek}kg/semana), e o intervalo de confiança de 95% vai de ${ciLo} a ${ciHi}. Não é ruído escondendo uma queda: com os dados de agora, o peso está estável.`
+          : `No período analisado (${t.n} pesagens), seu ritmo foi de ${perWeek}kg/semana, mas a incerteza estatística ainda inclui zero. Com os dados de agora, não dá para afirmar que houve mudança real — pode ser um platô, ou pode ser cedo demais para saber.`,
       evidencia: [
         { label: "Ritmo observado", valor: `${perWeek}kg/semana` },
         { label: "Amostra", valor: `${t.n} pesagens, de ${fmtDateBR(t.fromDate)} a ${fmtDateBR(t.toDate)}` },
@@ -133,15 +141,22 @@ export const weekdayEffectRule = {
     const dayName = WEEKDAY_NAMES[best.idx];
     const diff = +r.mean.toFixed(2);
     const conf = confidenceFrom({ kind: "weekday", n: r.n, pAdj: best.adj.pAdj, postHoc: true });
+    // Viés de registro: se um dia concentra >1/3 das pesagens (ex.: meses de
+    // pesagem só aos sábados), o "efeito" pode ser hábito de pesar, não corpo.
+    const counts = byWeekday.map((v) => v.length);
+    const heaviest = counts.indexOf(Math.max(...counts));
+    const heaviestShare = counts[heaviest] / points.length;
+    const biased = heaviestShare > 1 / 3;
     return {
       key: `weekday-effect:${best.idx}`,
       titulo: `Suas ${dayName}s costumam pesar diferente`,
-      corpo: `Em relação à sua tendência, ${dayName}s tendem a marcar ${diff > 0 ? "mais" : "menos"} ${Math.abs(diff)}kg — um padrão que se repetiu em ${r.n} ${dayName}s analisadas, mesmo depois de descontar por estar testando os 7 dias da semana ao mesmo tempo.`,
+      corpo: `Em relação à sua tendência, ${dayName}s tendem a marcar ${diff > 0 ? "mais" : "menos"} ${Math.abs(diff)}kg — um padrão que se repetiu em ${r.n} ${dayName}s analisadas, mesmo depois de descontar por estar testando os 7 dias da semana ao mesmo tempo.${biased ? ` Ressalva: ${Math.round(heaviestShare * 100)}% das suas pesagens caíram em ${WEEKDAY_NAMES[heaviest]}s, então parte disso pode ser o seu hábito de pesar, não o seu corpo.` : ""}`,
       evidencia: [
         { label: "Dia", valor: dayName },
         { label: "Diferença média em relação à tendência", valor: `${diff > 0 ? "+" : ""}${diff}kg` },
         { label: "Observações", valor: `${r.n} ${dayName}s` },
         { label: "p ajustado (Holm, 7 comparações)", valor: best.adj.pAdj.toFixed(3) },
+        ...(biased ? [{ label: "Concentração de pesagens", valor: `${Math.round(heaviestShare * 100)}% em ${WEEKDAY_NAMES[heaviest]}s` }] : []),
       ],
       confianca: conf, importancia: 60,
       periodo: { from: t.fromDate, to: t.toDate },

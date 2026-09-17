@@ -206,7 +206,7 @@ export default function Jornada() {
           </label>
         </div>
         {series.length >= 2 ? (
-          <WeightChart series={series} goal={goal} windowDays={windowDays} projection={projection} />
+          <WeightChart series={series} goal={goal} windowDays={windowDays} projection={projection} weighIns={weighIns} />
         ) : (
           <EmptyState
             icon={<LineChart size={28} />}

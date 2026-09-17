@@ -318,6 +318,7 @@ export default function Hoje() {
           <DayMarkerChips
             date={todayISO()}
             marker={todayMarker}
+            lockedKeys={sessions.some((s) => s.date === todayISO()) ? ["trained"] : []}
             onToggle={(date, key) => toggleMarker(date, key, user.id)}
           />
           {waterToday.pct != null && (

@@ -27,7 +27,9 @@ export default function MetabolicAdaptationCard({ adaptation }) {
 
   return (
     <div className="card">
-      <div className="card-label">Adaptação metabólica</div>
+      {/* Já se chamou "Adaptação metabólica" — nome errado: nada aqui mede
+          o metabolismo. É a fórmula recalculada com o peso novo, só isso. */}
+      <div className="card-label">Gasto estimado conforme o peso cai</div>
 
       <div className="flex-row" style={{ gap: 14, alignItems: "baseline", marginBottom: 10 }}>
         <span className="num" style={{ fontSize: "1.1rem", color: "var(--t2)" }}>{firstTdee}</span>
@@ -48,7 +50,7 @@ export default function MetabolicAdaptationCard({ adaptation }) {
           {deltaTdee < 0
             ? <>Você perdeu <span className="num">{Math.abs(weightDelta).toFixed(1)}</span> kg e, com isso, sua manutenção estimada caiu <strong style={{ color: "var(--t1)" }}>{Math.abs(deltaTdee)} kcal</strong>{deltaPerMonth ? <> — cerca de <span className="num">{Math.abs(deltaPerMonth)}</span> kcal/mês</> : null}. É por isso que o mesmo prato que emagrecia no começo pode empatar agora: o alvo precisa acompanhar. </>
             : <>Sua manutenção estimada praticamente não mudou no período. </>}
-          Estimativa do Mifflin-St Jeor, não medição — trate como direção.
+          Isto é a fórmula de Mifflin-St Jeor recalculada com o peso novo — aritmética, não uma medição do seu metabolismo. Adaptação metabólica de verdade (o corpo gastando menos do que a fórmula prevê) só apareceria com registro do que você come, que este painel não tem.
         </span>
       </div>
     </div>

@@ -3,6 +3,7 @@ import {
   Chart, LineController, LineElement, PointElement, LinearScale, Tooltip, Legend, Filler,
 } from "chart.js";
 import { daysBetween, addDaysISO, fmtDateBR } from "../../lib/calculations.js";
+import { tagById } from "../../lib/contextTags.js";
 
 // V2: eixo X trocou de CategoryScale (pontos igualmente espaçados,
 // independente da data real) para LinearScale com offsets numéricos de dia.
@@ -13,7 +14,10 @@ import { daysBetween, addDaysISO, fmtDateBR } from "../../lib/calculations.js";
 // torna um buraco real um buraco visível.
 Chart.register(LineController, LineElement, PointElement, LinearScale, Tooltip, Legend, Filler);
 
-export default function WeightChart({ series, goal, windowDays = 27, projection = null }) {
+// `weighIns` (opcional): as pesagens cruas, só para marcar na curva os dias
+// em que o usuário respondeu ao prompt de contexto (retenção, alimentação...).
+// Até aqui essas respostas ficavam no histórico e em nenhuma análise.
+export default function WeightChart({ series, goal, windowDays = 27, projection = null, weighIns = [] }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
 
@@ -22,6 +26,13 @@ export default function WeightChart({ series, goal, windowDays = 27, projection 
     const t0 = series[0].date;
     const toX = (date) => daysBetween(t0, date);
     const pesos = series.map((s) => ({ x: toX(s.date), y: s.peso }));
+    const pesoByDate = new Map(series.map((s) => [s.date, s.peso]));
+    const contexto = weighIns
+      .filter((w) => w.context_tags?.length && pesoByDate.has(w.date))
+      .map((w) => ({
+        x: toX(w.date), y: pesoByDate.get(w.date),
+        tags: w.context_tags.map((id) => tagById(id)?.label ?? id).join(", "),
+      }));
     const medias = series.filter((s) => s.media != null).map((s) => ({ x: toX(s.date), y: s.media }));
     const lastX = toX(series[series.length - 1].date);
 
@@ -131,6 +142,22 @@ export default function WeightChart({ series, goal, windowDays = 27, projection 
           borderWidth: 1.5,
           borderDash: [2, 4],
         },
+        ...(contexto.length
+          ? [{
+              label: "Contexto",
+              data: contexto,
+              parsing: false,
+              showLine: false,
+              borderColor: "#C9A24B",
+              pointBackgroundColor: "#17191A",
+              pointBorderColor: "#C9A24B",
+              pointBorderWidth: 2,
+              pointRadius: 7,
+              pointHoverRadius: 9,
+              pointStyle: "triangle",
+              rotation: 180,
+            }]
+          : []),
       ],
     };
 
@@ -159,7 +186,10 @@ export default function WeightChart({ series, goal, windowDays = 27, projection 
           filter: (item) => !item.dataset?.label?.startsWith("__"),
           callbacks: {
             title: (items) => (items.length ? fmtDateBR(addDaysISO(t0, items[0].parsed.x)) : ""),
-            label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(1) : "--"} kg`,
+            label: (ctx) =>
+              ctx.dataset.label === "Contexto"
+                ? ` contexto: ${ctx.raw.tags}`
+                : ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(1) : "--"} kg`,
           },
         },
       },
@@ -189,7 +219,7 @@ export default function WeightChart({ series, goal, windowDays = 27, projection 
     } else {
       chartRef.current = new Chart(canvasRef.current, { type: "line", data, options });
     }
-  }, [series, goal, windowDays, projection]);
+  }, [series, goal, windowDays, projection, weighIns]);
 
   useEffect(() => () => { chartRef.current?.destroy(); chartRef.current = null; }, []);
 
