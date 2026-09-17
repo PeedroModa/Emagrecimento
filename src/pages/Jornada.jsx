@@ -74,8 +74,8 @@ export default function Jornada() {
 
   const latest = weighIns[weighIns.length - 1];
   const goalPace = useMemo(
-    () => computeGoalPace({ currentWeight: latest?.weight, goal, goalDateISO: settings.goal_date, projection, today: todayISO() }),
-    [latest, goal, settings.goal_date, projection]
+    () => computeGoalPace({ currentWeight: latest?.weight, goal, goalDateISO: settings.goal_date, projection, currentRatePerWeek: trend?.perWeek ?? null, today: todayISO() }),
+    [latest, goal, settings.goal_date, projection, trend]
   );
   const rateChange = windowDays === AVG_WINDOW_DAYS ? trendRateChange(weighIns, goal, settings.height_cm) : null;
   const showTrendPrompt = !!rateChange && latest?.context_tags === null;

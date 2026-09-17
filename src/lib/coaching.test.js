@@ -134,3 +134,18 @@ describe("waistReminder — cintura aos domingos", () => {
     expect(waistReminder([], MON)).toBeNull();
   });
 });
+
+describe("computeGoalPace — sem projeção, mas com veredito sobre o ritmo atual", () => {
+  const base = { currentWeight: 106.7, goal: 95, goalDateISO: "2026-12-15", today: "2026-09-17", projection: null };
+  it("peso parado → stalled; perdendo devagar → slow; perdendo o bastante → sem veredito", () => {
+    const r = computeGoalPace({ ...base, currentRatePerWeek: 0.02 });
+    expect(r.status).toBe("no-projection");
+    expect(r.verdict).toBe("stalled");
+    expect(r.plannedRatePerWeek).toBeCloseTo(0.92, 2);
+    expect(computeGoalPace({ ...base, currentRatePerWeek: -0.3 }).verdict).toBe("slow");
+    expect(computeGoalPace({ ...base, currentRatePerWeek: -1.0 }).verdict).toBeNull();
+  });
+  it("sem ritmo informado → veredito nulo (nunca acusa sem dado)", () => {
+    expect(computeGoalPace(base).verdict).toBeNull();
+  });
+});

@@ -22,6 +22,25 @@ function GoalPaceLine({ pace }) {
     return <S color="var(--accent)">data-alvo {fmtGoalDate(pace.goalDateISO)} já passou</S>;
   }
   if (pace.status === "no-projection") {
+    // Sem projeção = o peso não está caindo. É exatamente quando a pessoa
+    // precisa saber que a data não fecha — não quando a tela deve calar.
+    const rate = pace.currentRatePerWeek;
+    const rateTxt = rate != null ? `${rate > 0 ? "+" : ""}${rate.toFixed(2)}` : null;
+    if (pace.verdict === "stalled") {
+      return (
+        <S color="var(--warn)">
+          plano: <span className="num">{pace.plannedRatePerWeek}</span> kg/sem até {fmtGoalDate(pace.goalDateISO)} · ritmo atual: <span className="num">{rateTxt}</span> kg/sem
+          <br />nesse ritmo a data não fecha — ou a data muda, ou o plano muda
+        </S>
+      );
+    }
+    if (pace.verdict === "slow") {
+      return (
+        <S color="var(--warn)">
+          plano: <span className="num">{pace.plannedRatePerWeek}</span> kg/sem até {fmtGoalDate(pace.goalDateISO)} · ritmo atual: <span className="num">{rateTxt}</span> kg/sem, abaixo do que a data pede
+        </S>
+      );
+    }
     return <S color="var(--t3)">plano: <span className="num">{pace.plannedRatePerWeek}</span> kg/sem até {fmtGoalDate(pace.goalDateISO)}</S>;
   }
   if (pace.status === "on-track") {

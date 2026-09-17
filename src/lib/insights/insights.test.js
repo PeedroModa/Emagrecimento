@@ -340,3 +340,27 @@ describe("Tier 5 — hidratação como contexto", () => {
     expect(ctx.markers).toEqual([{ date: series[3].date, trained: true }]);
   });
 });
+
+describe("Tier 2 — mudança de ritmo (pace-change)", () => {
+  // Réplica do caso real: 4 semanas de pesagem SEMANAL perdendo ~0.8kg/sem,
+  // depois 4 semanas quase diárias com peso parado.
+  const phase1 = makeSeries({ start: "2026-01-01", days: 28, startKg: 110, slopeKgPerDay: -0.115, noiseSd: 0.15, seed: 51, stepDays: 7 });
+  const phase2 = makeSeries({ start: "2026-01-29", days: 28, startKg: 106.8, slopeKgPerDay: 0, noiseSd: 0.3, seed: 52 });
+
+  it("perda que vira platô → dispara como tendência, nunca fato", () => {
+    const series = [...phase1, ...phase2];
+    const ctx = ctxFor(series, undefined, [], []);
+    const hit = runInsights(ctx).find((i) => i.ruleId === "pace-change");
+    expect(hit).toBeTruthy();
+    expect(hit.titulo).toBe("Sua perda de peso parou");
+    expect(["tendencia", "estimativa"]).toContain(hit.confianca);
+    expect(hit.evidencia.some((e) => e.label === "Data da virada (estimada)")).toBe(true);
+  });
+
+  it("ritmo constante → silêncio; poucas pesagens na fase anterior → silêncio", () => {
+    const steady = makeSeries({ start: "2026-01-01", days: 56, startKg: 100, slopeKgPerDay: -0.08, noiseSd: 0.3, seed: 53 });
+    expect(runInsights(ctxFor(steady, undefined, [], [])).some((i) => i.ruleId === "pace-change")).toBe(false);
+    const tooFew = [...phase1.slice(-2), ...phase2];
+    expect(runInsights(ctxFor(tooFew, undefined, [], [])).some((i) => i.ruleId === "pace-change")).toBe(false);
+  });
+});

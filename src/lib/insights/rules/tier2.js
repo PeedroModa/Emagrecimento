@@ -2,7 +2,7 @@
 // primeiras inferências estatísticas de verdade: significância, mudança de
 // dia da semana, reversão de retenção hídrica.
 import { fmtDateBR } from "../../calculations.js";
-import { zScore, oneSampleTTest, holmAdjust } from "../../stats.js";
+import { zScore, oneSampleTTest, holmAdjust, ols, pFromT, changePoint } from "../../stats.js";
 import { confidenceFrom } from "../confidence.js";
 import { payloadHash } from "../hash.js";
 
@@ -146,6 +146,78 @@ export const weekdayEffectRule = {
       confianca: conf, importancia: 60,
       periodo: { from: t.fromDate, to: t.toDate },
       payloadHash: payloadHash({ day: best.idx, diff }),
+    };
+  },
+};
+
+// ── Mudança de ritmo ────────────────────────────────────────────────────
+// Compara a inclinação das últimas 4 semanas com a das 4 anteriores e testa
+// a diferença (t = Δslope / √(se₁²+se₂²)). Existe porque journey-phases
+// (Chow) só destrava com 30 pesagens — e a quebra mais importante do
+// histórico (emagreceu e parou) já é detectável muito antes disso. A DATA
+// da virada é sensível ao método; a existência da mudança, não. O texto diz
+// isso. Além do p, exige um efeito mínimo prático: 0,1kg/semana de diferença
+// com p<0,05 é verdade estatística e irrelevância fisiológica.
+const PACE_WINDOW_DAYS = 28;
+const PACE_MIN_RECENT = 8;
+const PACE_MIN_PREVIOUS = 4;
+const PACE_MIN_DIFF_PER_WEEK = 0.25;
+
+function paceHeadline(before, after) {
+  const losing = (v) => v <= -0.1;
+  const flat = (v) => Math.abs(v) < 0.1;
+  if (losing(before) && flat(after)) return "Sua perda de peso parou";
+  if (losing(before) && after >= 0.1) return "Seu peso virou: de queda para alta";
+  if (losing(before) && losing(after)) return Math.abs(after) < Math.abs(before) ? "Sua perda de peso desacelerou" : "Sua perda de peso acelerou";
+  if (!losing(before) && losing(after)) return "Seu peso começou a cair";
+  if (before >= 0.1 && flat(after)) return "O ganho de peso parou";
+  return "Seu ritmo mudou";
+}
+
+export const paceChangeRule = {
+  id: "pace-change", version: 1, category: "tendencia", minDaysBetweenShows: 14,
+  requires: (ctx) => Boolean(ctx.last && ctx.points.length >= PACE_MIN_RECENT + PACE_MIN_PREVIOUS),
+  detect: (ctx) => {
+    const endT = ctx.points[ctx.points.length - 1].t;
+    const recent = ctx.points.filter((p) => p.t > endT - PACE_WINDOW_DAYS);
+    const previous = ctx.points.filter((p) => p.t <= endT - PACE_WINDOW_DAYS && p.t > endT - 2 * PACE_WINDOW_DAYS);
+    if (recent.length < PACE_MIN_RECENT || previous.length < PACE_MIN_PREVIOUS) return null;
+    const xy = (arr) => arr.map((p) => ({ x: p.t, y: p.v }));
+    const a = ols(xy(previous));
+    const b = ols(xy(recent));
+    if (!a || !b || !(a.slopeSe > 0) || !(b.slopeSe > 0)) return null;
+
+    const diff = (b.slope - a.slope) * 7;
+    const se = Math.sqrt(a.slopeSe ** 2 + b.slopeSe ** 2) * 7;
+    const tStat = diff / se;
+    const df = a.df + b.df;
+    const p = pFromT(tStat, df);
+    if (p == null || p >= 0.05 || Math.abs(diff) < PACE_MIN_DIFF_PER_WEEK) return null;
+
+    const beforeWeek = +(a.slope * 7).toFixed(2);
+    const afterWeek = +(b.slope * 7).toFixed(2);
+    // Data da virada: teste de quebra quando ele já tem pontos para isso;
+    // senão, o início da janela recente. Nos dois casos é aproximação.
+    const cp = ctx.points.length >= 2 * 6 + 2 ? changePoint(xy(ctx.points), { minSegment: 6 }) : null;
+    const splitDate = cp?.significant ? ctx.sorted[cp.index]?.date ?? recent[0].date : recent[0].date;
+    const n = recent.length + previous.length;
+    const sign = (v) => `${v > 0 ? "+" : ""}${v}`;
+
+    return {
+      key: `pace-change:${recent[0].date}`,
+      titulo: paceHeadline(beforeWeek, afterWeek),
+      corpo: `Entre ${fmtDateBR(previous[0].date)} e ${fmtDateBR(previous[previous.length - 1].date)} seu ritmo era de ${sign(beforeWeek)}kg/semana. Nas últimas quatro semanas (${recent.length} pesagens), ${sign(afterWeek)}kg/semana. A diferença de ${sign(+diff.toFixed(2))}kg/semana é maior do que a incerteza das duas retas explica. A virada fica por volta de ${fmtDateBR(splitDate)} — a data é aproximada; a mudança, não.`,
+      evidencia: [
+        { label: "Ritmo anterior", valor: `${sign(beforeWeek)}kg/semana (${previous.length} pesagens)` },
+        { label: "Ritmo recente", valor: `${sign(afterWeek)}kg/semana (${recent.length} pesagens)` },
+        { label: "Diferença", valor: `${sign(+diff.toFixed(2))}kg/semana` },
+        { label: "p (diferença de inclinações)", valor: p.toFixed(3) },
+        { label: "Data da virada (estimada)", valor: `${fmtDateBR(splitDate)}${cp?.significant ? " · teste de quebra" : " · início da janela"}` },
+      ],
+      confianca: confidenceFrom({ kind: "trend", n, pAdj: p }),
+      importancia: 88,
+      periodo: { from: previous[0].date, to: ctx.last.date },
+      payloadHash: payloadHash({ before: beforeWeek, after: afterWeek }),
     };
   },
 };

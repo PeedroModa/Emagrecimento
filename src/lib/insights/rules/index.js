@@ -1,6 +1,6 @@
 import { startingPointRule, distanceToGoalRule, bmiBandRule, journeyDurationRule, newRecordRule } from "./tier0.js";
 import { personalNoiseBandRule, trueTrendLineRule } from "./tier1.js";
-import { trendSignificanceRule, scaleVsTrendRecordRule, waterRetentionReversalRule, weekdayEffectRule } from "./tier2.js";
+import { trendSignificanceRule, scaleVsTrendRecordRule, waterRetentionReversalRule, weekdayEffectRule, paceChangeRule } from "./tier2.js";
 import { journeyPhasesRule, milestoneComparisonRule } from "./tier3.js";
 import { waistHeightRatioRule, recompositionRule } from "./tier4.js";
 import { markerEffectRule, hydrationEffectRule } from "./tier5.js";
@@ -19,6 +19,7 @@ export const RULES = [
   scaleVsTrendRecordRule,
   waterRetentionReversalRule,
   weekdayEffectRule,
+  paceChangeRule,
   journeyPhasesRule,
   milestoneComparisonRule,
   waistHeightRatioRule,

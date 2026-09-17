@@ -95,7 +95,11 @@ export function computeWeeklyReview(sortedWeights, settings, today = todayISO(),
 // ── #4 Ritmo vs. data-alvo ─────────────────────────────────────────────
 // Compara a data em que a projeção crava a meta (projection.goalDateISO,
 // vindo de computeProjection) com a data-alvo escolhida pelo usuário.
-export function computeGoalPace({ currentWeight, goal, goalDateISO, projection, today = todayISO() }) {
+// `currentRatePerWeek` (kg/semana da tendência exibida, negativo = perdendo)
+// só importa quando NÃO há projeção: é justamente o caso em que o peso não
+// está caindo — e aí a tela precisa dizer que a data não fecha, em vez de
+// mostrar o ritmo planejado como se fosse um plano em andamento.
+export function computeGoalPace({ currentWeight, goal, goalDateISO, projection, currentRatePerWeek = null, today = todayISO() }) {
   if (!goalDateISO) return { status: "no-target" };
   if (currentWeight == null || goal == null) return { status: "no-target" };
   if (currentWeight <= goal) return { status: "reached", goalDateISO };
@@ -108,7 +112,12 @@ export function computeGoalPace({ currentWeight, goal, goalDateISO, projection, 
   const projectedDateISO = projection?.goalDateISO ?? null;
 
   if (!projectedDateISO) {
-    return { status: "no-projection", goalDateISO, plannedDays, plannedRatePerWeek, remaining };
+    let verdict = null; // "stalled" = não está perdendo; "slow" = perde, mas abaixo do que a data pede
+    if (currentRatePerWeek != null) {
+      const loss = -currentRatePerWeek;
+      verdict = loss <= 0.05 ? "stalled" : loss < plannedRatePerWeek ? "slow" : null;
+    }
+    return { status: "no-projection", goalDateISO, plannedDays, plannedRatePerWeek, remaining, currentRatePerWeek, verdict };
   }
 
   const deltaDays = daysBetween(goalDateISO, projectedDateISO); // >0 = projeção depois da meta (atrasado)
